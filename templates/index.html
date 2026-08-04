@@ -1088,9 +1088,9 @@
             killAllCallAudio();
             
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
-            addCallMessage(message, 'user');
+            if (message) addCallMessage(message, 'user');
             
-            var body = { message: message };
+            var body = { message: message || '' };
             if (action) body.action = action;
             
             fetch(CHAT_API_URL, {
@@ -1334,6 +1334,21 @@
         function callPromptRetry() {
             if (!isCalling) return;
             callSpeak("No te escuché bien. Por favor, después de la señal pronuncia claramente el dato solicitado.", false, false);
+        }
+        
+        function startListeningTimeout() {
+            stopListeningTimeout();
+            listeningTimeout = setTimeout(function() {
+                if (!isCalling || isSpeaking) return;
+                callPromptRetry();
+            }, 7000);
+        }
+        
+        function stopListeningTimeout() {
+            if (listeningTimeout) {
+                clearTimeout(listeningTimeout);
+                listeningTimeout = null;
+            }
         }
         
         function showError(message) {
