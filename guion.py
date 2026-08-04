@@ -35,7 +35,7 @@ PASOS = {
     },
     "categorizacion_caso": {
         "id": "categorizacion_caso",
-        "siguiente": "descripcion_caso",
+        "siguiente": "verificacion_pruebas",
         "mensaje": "Entendido, {nombre}, como {rol}. Ahora, ¿en qué categoría crees que está tu caso? Por favor, seleccione la opción que mejor se adapte a tu caso.",
         "validar": None,
         "botones": [
@@ -61,6 +61,25 @@ PASOS = {
             },
         ],
         "campo": "case_category",
+    },
+    "verificacion_pruebas": {
+        "id": "verificacion_pruebas",
+        "siguiente": "descripcion_caso",
+        "mensaje": "Entendido, {nombre}, tu caso corresponde a la categoría {categoria}. Ahora, ¿cuenta con pruebas que argumenten su caso, como documentos, fotos, audios u otros? Por favor, seleccione la opción que más se parezca a tu caso.",
+        "validar": None,
+        "botones": [
+            {
+                "texto": "Sí, tengo pruebas",
+                "valor": "si_pruebas",
+                "descripcion": "Documentos, fotos, audios u otros.",
+            },
+            {
+                "texto": "No, no tengo pruebas",
+                "valor": "no_pruebas",
+                "descripcion": "Continuar sin pruebas.",
+            },
+        ],
+        "campo": "has_evidence",
     },
     "descripcion_caso": {
         "id": "descripcion_caso",

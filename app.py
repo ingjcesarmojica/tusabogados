@@ -618,16 +618,38 @@ def chat():
 
             if accion_boton in ["civil", "laboral", "penal", "no_definida"]:
                 guardar_estado_campo("case_category", accion_boton)
+                chat.paso_actual = "verificacion_pruebas"
+                paso_pruebas = obtener_paso("verificacion_pruebas")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_pruebas, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_pruebas["botones"],
+                        "step": "verificacion_pruebas",
+                    }
+                )
+
+            if accion_boton in ["si_pruebas", "no_pruebas"]:
+                guardar_estado_campo("has_evidence", accion_boton)
                 chat.paso_actual = "descripcion_caso"
                 paso_desc = obtener_paso("descripcion_caso")
                 datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_desc, datos)
+                if accion_boton == "si_pruebas":
+                    response = (
+                        formatear_mensaje(paso_desc, datos)
+                        + " Por favor, adjunte los archivos que desee enviar."
+                    )
+                else:
+                    response = formatear_mensaje(paso_desc, datos)
                 return jsonify(
                     {
                         "response": response,
                         "end_call": False,
                         "buttons": None,
                         "step": "descripcion_caso",
+                        "show_upload": accion_boton == "si_pruebas",
                     }
                 )
 
