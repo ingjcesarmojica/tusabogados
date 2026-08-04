@@ -10,33 +10,44 @@ PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "captura_nombre",
-        "mensaje": "Bienvenido a TusAbogados.com. Para personalizar su atención, ¿con quién tengo el gusto de hablar? Por favor, dígame su nombre.",
+        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Por favor, dime tu nombre.",
         "validar": None,
         "botones": None,
     },
     "captura_nombre": {
         "id": "captura_nombre",
         "siguiente": "identificacion_rol",
-        "mensaje": "Mucho gusto {nombre}. Para orientarle mejor, necesito saber su rol en el caso.",
+        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso.",
         "validar": "nombre",
-        "botones": None,
+        "botones": [
+            {
+                "texto": "Víctima",
+                "valor": "victima",
+                "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrió algún daño.",
+            },
+            {
+                "texto": "Demandante",
+                "valor": "demandante",
+                "descripcion": "Si quiero iniciar una demanda por divorcio, herencia, contrato, o mis derechos laborales.",
+            },
+        ],
         "campo": "user_name",
     },
     "identificacion_rol": {
         "id": "identificacion_rol",
         "siguiente": "identificacion_rol_opcion",
-        "mensaje": "¿Se considera víctima o demandante en esta situación?",
+        "mensaje": "¿Te consideras víctima o demandante en esta situación?",
         "validar": None,
         "botones": [
             {
                 "texto": "Víctima",
                 "valor": "victima",
-                "descripcion": "Si sufrió un accidente, le deben dinero, fue estafado, o sufrió algún daño o perjuicio.",
+                "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrí algún daño.",
             },
             {
                 "texto": "Demandante",
                 "valor": "demandante",
-                "descripcion": "Si quiere iniciar una demanda por divorcio, reclamar una herencia, demandar por incumplimiento de contrato, o exigir sus derechos laborales.",
+                "descripcion": "Si quiero iniciar una demanda por divorcio, herencia, contrato, o mis derechos laborales.",
             },
         ],
         "campo": "user_role",
@@ -44,14 +55,14 @@ PASOS = {
     "identificacion_rol_opcion": {
         "id": "identificacion_rol_opcion",
         "siguiente": "categorizacion_caso",
-        "mensaje": "Entendido {nombre}, como {rol}. Ahora necesito saber el tipo de caso.",
+        "mensaje": "Entendido, {nombre}, como {rol}. Ahora necesito saber el tipo de caso que manejas.",
         "validar": None,
         "botones": None,
     },
     "categorizacion_caso": {
         "id": "categorizacion_caso",
         "siguiente": "categorizacion_caso_opcion",
-        "mensaje": "¿En qué categoría cree que está su caso?",
+        "mensaje": "¿En qué categoría crees que está tu caso?",
         "validar": None,
         "botones": [
             {
@@ -72,7 +83,7 @@ PASOS = {
             {
                 "texto": "No sé cuál es mi categoría",
                 "valor": "no_definida",
-                "descripcion": "Un abogado le orientará.",
+                "descripcion": "Un abogado te orientará.",
             },
         ],
         "campo": "case_category",
@@ -80,14 +91,14 @@ PASOS = {
     "categorizacion_caso_opcion": {
         "id": "categorizacion_caso_opcion",
         "siguiente": "descripcion_caso",
-        "mensaje": "Categoría {categoria} registrada. Por favor, descríbame brevemente su caso para entender mejor su situación.",
+        "mensaje": "Categoría {categoria} registrada. Ahora, descríbame brevemente su caso para entender mejor tu situación.",
         "validar": None,
         "botones": None,
     },
     "descripcion_caso": {
         "id": "descripcion_caso",
         "siguiente": "captura_correo",
-        "mensaje": "Gracias {nombre} por la información. Para agendar su cita y enviarle la confirmación, necesito su correo electrónico. ¿Cuál es su correo electrónico?",
+        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico?",
         "validar": "descripcion",
         "botones": None,
         "campo": "case_description",
@@ -95,7 +106,7 @@ PASOS = {
     "captura_correo": {
         "id": "captura_correo",
         "siguiente": "captura_telefono",
-        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarle. ¿Cuál es su número de contacto?",
+        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número?",
         "validar": "correo",
         "botones": None,
         "campo": "user_email",
@@ -103,29 +114,29 @@ PASOS = {
     "captura_telefono": {
         "id": "captura_telefono",
         "siguiente": "confirmacion_cita",
-        "mensaje": "Perfecto {nombre}. Tenemos toda la información necesaria. Le propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?",
+        "mensaje": "Perfecto, {nombre}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?",
         "validar": "telefono",
         "botones": [
-            {"texto": "Sí, confirmo", "valor": "confirmar", "descripcion": ""},
-            {"texto": "No, otro horario", "valor": "rechazar", "descripcion": ""},
+            {"texto": "Sí, me viene bien", "valor": "confirmar", "descripcion": ""},
+            {"texto": "No, busco otro horario", "valor": "rechazar", "descripcion": ""},
         ],
         "campo": "user_phone",
     },
     "confirmacion_cita": {
         "id": "confirmacion_cita",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "Cita confirmada {nombre}.",
+        "mensaje": "¡Cita confirmada, {nombre}!",
         "validar": None,
         "botones": None,
     },
     "confirmacion_cita_opcion": {
         "id": "confirmacion_cita_opcion",
         "siguiente": "manejo_post_cita",
-        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Correo de confirmación: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado su caso de {categoria}. Le comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.\n\n¿Hay algo más en lo que pueda ayudarle?",
+        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.\n\n¿Hay algo más en lo que pueda ayudarte?",
         "validar": None,
         "botones": [
             {
-                "texto": "Sí, tengo otra pregunta",
+                "texto": "Sí, tengo otra duda",
                 "valor": "consulta_adicional",
                 "descripcion": "",
             },
@@ -135,7 +146,7 @@ PASOS = {
     "manejo_post_cita": {
         "id": "manejo_post_cita",
         "siguiente": None,
-        "mensaje": "Perfecto {nombre}. Ha sido un placer ayudarle. Un abogado se contactará con usted en la fecha acordada. Esta llamada se finalizará automáticamente. ¡Que tenga un excelente día!",
+        "mensaje": "Perfecto, {nombre}. Ha sido un placer ayudarte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!",
         "validar": None,
         "botones": None,
         "fin": True,
@@ -143,11 +154,11 @@ PASOS = {
     "consulta_adicional": {
         "id": "consulta_adicional",
         "siguiente": "manejo_post_cita",
-        "mensaje": "Entendido {nombre}. He registrado su consulta adicional. Uno de nuestros abogados especializados se contactará con usted según los datos agendados y le ampliará toda la información al respecto. ¿Hay alguna otra cosa en la que pueda asistirle?",
+        "mensaje": "Entendido, {nombre}. He registrado tu consulta adicional. Uno de nuestros abogados especializados se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte?",
         "validar": None,
         "botones": [
             {
-                "texto": "Sí, tengo otra pregunta",
+                "texto": "Sí, tengo otra duda",
                 "valor": "consulta_adicional",
                 "descripcion": "",
             },
@@ -157,7 +168,7 @@ PASOS = {
     "despedida": {
         "id": "despedida",
         "siguiente": None,
-        "mensaje": "Gracias a usted {nombre}. Ha sido un placer atenderle. Un abogado se comunicará con usted en la fecha acordada. ¡Que tenga un excelente día!",
+        "mensaje": "Gracias a ti, {nombre}. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!",
         "validar": None,
         "botones": None,
         "fin": True,
@@ -165,7 +176,7 @@ PASOS = {
     "rechazo_horario": {
         "id": "rechazo_horario",
         "siguiente": "alternativa_horario",
-        "mensaje": "Entiendo perfectamente. En ese caso, ¿le gustaría que le pongamos en contacto directamente con uno de nuestros abogados? Ellos podrán atender su caso de forma personalizada.",
+        "mensaje": "Entiendo perfectamente. En ese caso, ¿te gustaría que te pongamos en contacto directamente con uno de nuestros abogados? Ellos podrán atender tu caso de forma personalizada.",
         "validar": None,
         "botones": [
             {
@@ -174,7 +185,7 @@ PASOS = {
                 "descripcion": "",
             },
             {
-                "texto": "Propóngame otra fecha",
+                "texto": "Propónme otra fecha",
                 "valor": "otra_fecha",
                 "descripcion": "",
             },
@@ -183,11 +194,11 @@ PASOS = {
     "alternativa_horario": {
         "id": "alternativa_horario",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "Queda registrada su cita.\n\n📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.\n📧 Correo de confirmación: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado su caso de {categoria}. Un abogado se comunicará con usted en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarle?",
+        "mensaje": "Queda registrada tu cita.\n\n📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado tu caso de {categoria}. Un abogado se comunicará contigo en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarte?",
         "validar": None,
         "botones": [
             {
-                "texto": "Sí, tengo otra pregunta",
+                "texto": "Sí, tengo otra duda",
                 "valor": "consulta_adicional",
                 "descripcion": "",
             },
@@ -219,159 +230,89 @@ def formatear_mensaje(paso, datos):
         return mensaje
 
 
+MENSAJE_ERROR_GENERICO = (
+    "Por favor, verifica que el dato ingresado sea válido e intenta de nuevo."
+)
+
+
 def validar_nombre(respuesta):
     """
-    Valida que el nombre sea válido:
-    - Mínimo 2 caracteres
-    - No puede ser solo números
-    - No puede ser una sola letra
-    - Debe tener al menos un espacio (nombre completo)
-    - No puede contener caracteres especiales peligrosos
-    - No puede ser palabras sin sentido como "asd", "123", etc.
+    Valida que el nombre sea válido.
+    Retorna (True, nombre_formateado) o (False, mensaje_error).
     """
     import re
 
+    MENSAJE_NOMBRE = "Por favor, verifica que el nombre sea válido e intenta de nuevo. Debe ser tu nombre y apellido."
+
     if not respuesta or len(respuesta.strip()) < 2:
-        return (
-            False,
-            "Por favor, indíqueme su nombre completo para proceder con la cita.",
-        )
+        return False, MENSAJE_NOMBRE
 
     respuesta = respuesta.strip()
 
     # No puede ser solo números
     if respuesta.isdigit():
-        return (
-            False,
-            "El nombre no puede ser solo números. Por favor, indíqueme su nombre completo.",
-        )
+        return False, MENSAJE_NOMBRE
 
     # No puede ser una sola letra
     if len(respuesta) == 1:
-        return False, "Por favor, indíqueme su nombre completo (nombre y apellido)."
+        return False, MENSAJE_NOMBRE
 
     # Debe tener al menos 2 palabras (nombre y apellido)
     palabras = respuesta.split()
     if len(palabras) < 2:
-        return (
-            False,
-            "Por favor, indíqueme tanto su nombre como su apellido (ejemplo: Juan Pérez).",
-        )
+        return False, MENSAJE_NOMBRE
 
-    # No puede contener caracteres especiales peligrosos
-    caracteres_prohibidos = set("@#$%&*(){}[]|/<>!£¥¢§¶™®©")
+    # No puede contener caracteres especiales
+    caracteres_prohibidos = set("@#$%&*(){}[]|/<>!£¥¢§¶™®©0123456789")
     if any(char in caracteres_prohibidos for char in respuesta):
-        return (
-            False,
-            "El nombre contiene caracteres no válidos. Por favor, ingrese solo letras y espacios.",
-        )
+        return False, MENSAJE_NOMBRE
 
-    # No puede tener números intercalados
-    if re.search(r"[a-zA-Z]\d[a-zA-Z]", respuesta):
-        return (
-            False,
-            "El nombre no debe contener números. Por favor, indíqueme su nombre completo.",
-        )
-
-    # Verificar que no sea una palabra sin sentido (todas las letras iguales o patrón repetitivo)
+    # Verificar que no sea una palabra sin sentido
     if len(set(respuesta.replace(" ", ""))) < 3:
-        return (
-            False,
-            "El nombre ingresado no parece válido. Por favor, indíqueme su nombre completo.",
-        )
+        return False, MENSAJE_NOMBRE
 
     # Cada palabra debe tener al menos 2 letras
     for palabra in palabras:
         if len(palabra) < 2:
-            return (
-                False,
-                "Cada parte del nombre debe tener al menos 2 letras. Por favor, indíqueme su nombre completo.",
-            )
+            return False, MENSAJE_NOMBRE
 
     return True, respuesta.title()
 
 
 def validar_correo(respuesta):
     """
-    Valida que el correo electrónico sea válido:
-    - Formato correcto
-    - Dominio existe
-    - No tiene caracteres extraños
+    Valida que el correo electrónico sea válido.
+    Retorna (True, correo) o (False, mensaje_error).
     """
     import re
 
+    MENSAJE_CORREO = "Por favor, verifica que el correo electrónico sea válido e intenta de nuevo. Ejemplo: nombre@correo.com"
+
     if not respuesta:
-        return (
-            False,
-            "¿Cuál es su correo electrónico? Lo necesito para enviarle la confirmación de la cita.",
-        )
+        return False, MENSAJE_CORREO
 
     respuesta = respuesta.strip().lower()
 
     # Formato básico
     patron = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(patron, respuesta):
-        return (
-            False,
-            "El correo electrónico no tiene un formato válido. Ejemplo: nombre@correo.com",
-        )
+        return False, MENSAJE_CORREO
 
     # Verificar que no tenga caracteres extraños
     if ".." in respuesta or "--" in respuesta or "__" in respuesta:
-        return (
-            False,
-            "El correo electrónico contiene caracteres repetidos. Por favor, verifíquelo.",
-        )
-
-    # Dominios comunes válidos
-    dominios_validos = [
-        "gmail.com",
-        "hotmail.com",
-        "outlook.com",
-        "yahoo.com",
-        "live.com",
-        "icloud.com",
-        "aol.com",
-        "protonmail.com",
-        "mail.com",
-        "zoho.com",
-        "yandex.com",
-        "gmx.com",
-        "fastmail.com",
-        "tutanota.com",
-        "colombia.com",
-        "etb.net.co",
-        "movistar.com.co",
-        "claro.com.co",
-        "une.net.co",
-        "telmex.com",
-        "prodigy.net",
-        "comcast.net",
-    ]
-
-    dominio = respuesta.split("@")[1] if "@" in respuesta else ""
-    if dominio and "." in dominio:
-        # Verificar si es un dominio conocido o tiene formato válido
-        partes_dominio = dominio.split(".")
-        if len(partes_dominio) < 2:
-            return False, "El dominio del correo electrónico no es válido."
+        return False, MENSAJE_CORREO
 
     return True, respuesta
 
 
 def validar_telefono(respuesta):
     """
-    Valida número de teléfono colombiano:
-    - 10 dígitos exactos
-    - Móviles: empiezan por 3 (300-350)
-    - Fijos Bogotá: empiezan por 1 (601xxxxxxx)
-    - Fijos Medellín: empiezan por 4 (604xxxxxxx)
-    - Fijos Cali: empiezan por 2 (602xxxxxxx)
-    - Fijos Barranquilla: empiezan por 5 (605xxxxxxx)
-    - Fijos Bucaramanga: empiezan por 7 (607xxxxxxx)
-    - Fijos Pereira: empiezan por 6 (606xxxxxxx)
+    Valida número de teléfono colombiano.
+    Retorna (True, telefono) o (False, mensaje_error).
     """
     import re
+
+    MENSAJE_TELEFONO = "Por favor, verifica que el número de teléfono sea válido e intenta de nuevo. Debe tener 10 dígitos."
 
     if not respuesta:
         return False, "¿Cuál es su número de teléfono de contacto?"
@@ -381,14 +322,11 @@ def validar_telefono(respuesta):
 
     # Debe tener 10 dígitos
     if len(digits) != 10:
-        return (
-            False,
-            "El número de teléfono debe tener exactamente 10 dígitos. Ejemplo: 3001234567",
-        )
+        return False, MENSAJE_TELEFONO
 
     # No puede ser todos los dígitos iguales
     if len(set(digits)) == 1:
-        return False, "El número de teléfono no es válido. Por favor, verifíquelo."
+        return False, MENSAJE_TELEFONO
 
     # Móviles colombianos: empiezan por 3
     if digits[0] == "3":
@@ -417,88 +355,56 @@ def validar_telefono(respuesta):
         ]
         prefijo = digits[:3]
         if prefijo not in prefijos_moviles:
-            return (
-                False,
-                f"El prefijo {prefijo} no corresponde a una operadora válida en Colombia. Prefijos móviles válidos: 300-323, 350",
-            )
+            return False, MENSAJE_TELEFONO
         return True, digits
 
-    # Fijos colombianos: segundo dígito indica la ciudad
+    # Fijos colombianos: 60X
     if digits[0] == "6" and digits[1] == "0":
         ciudad = digits[2]
-        ciudades_validas = {
-            "1": "Bogotá",
-            "2": "Cali",
-            "4": "Medellín",
-            "5": "Barranquilla",
-            "6": "Pereira",
-            "7": "Bucaramanga",
-        }
+        ciudades_validas = {"1", "2", "4", "5", "6", "7"}
         if ciudad in ciudades_validas:
             return True, digits
         else:
-            return (
-                False,
-                f"El prefijo 60{ciudad} no corresponde a una ciudad válida en Colombia.",
-            )
+            return False, MENSAJE_TELEFONO
 
-    # Otros números fijos válidos (empiezan por 1, 4, 5, 7, 8)
+    # Otros números fijos válidos
     if digits[0] in "14578":
         return True, digits
 
-    return (
-        False,
-        "El número no corresponde a un teléfono válido en Colombia. Los móviles empiezan por 3 y los fijos por 60X.",
-    )
+    return False, MENSAJE_TELEFONO
 
 
 def validar_descripcion(respuesta):
     """
-    Valida que la descripción sea lógica:
-    - Mínimo 10 caracteres
-    - Al menos 3 palabras
-    - No puede ser solo números
-    - Debe contener letras
+    Valida que la descripción sea lógica.
+    Retorna (True, descripcion) o (False, mensaje_error).
     """
     import re
 
+    MENSAJE_DESCRIPCION = "Por favor, verifica que la descripción sea válida e intenta de nuevo. Describe brevemente los hechos de tu caso."
+
     if not respuesta or len(respuesta.strip()) < 10:
-        return (
-            False,
-            "La descripción debe tener al menos 10 caracteres. Por favor, describa brevemente su caso.",
-        )
+        return False, MENSAJE_DESCRIPCION
 
     respuesta = respuesta.strip()
 
     # No puede ser solo números o caracteres especiales
     if re.sub(r"[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]", "", respuesta).strip() == "":
-        return (
-            False,
-            "La descripción debe contener texto. Por favor, describa los hechos de su caso.",
-        )
+        return False, MENSAJE_DESCRIPCION
 
     # Debe tener al menos 3 palabras
     palabras = respuesta.split()
     if len(palabras) < 3:
-        return (
-            False,
-            "Por favor, proporcione más detalles. Describe qué pasó, cuándo y con quién.",
-        )
+        return False, MENSAJE_DESCRIPCION
 
     # No puede tener solo caracteres repetidos
     texto_limpio = respuesta.replace(" ", "").replace(".", "").replace(",", "")
     if len(set(texto_limpio.lower())) < 4:
-        return (
-            False,
-            "La descripción no parece contener información relevante. Por favor, describa su caso.",
-        )
+        return False, MENSAJE_DESCRIPCION
 
     # No puede ser solo signos de interrogación o exclamación
     if re.sub(r"[¿?!¡.,\s]", "", respuesta).strip() == "":
-        return (
-            False,
-            "La descripción debe contener el relato de los hechos. Por favor, describa su caso.",
-        )
+        return False, MENSAJE_DESCRIPCION
 
     return True, respuesta
 
