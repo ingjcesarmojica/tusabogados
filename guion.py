@@ -83,10 +83,7 @@ PASOS = {
         "siguiente": "confirmacion_cita",
         "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número?",
         "validar": "telefono",
-        "botones": [
-            {"texto": "Sí, me viene bien", "valor": "confirmar", "descripcion": ""},
-            {"texto": "No, busco otro horario", "valor": "rechazar", "descripcion": ""},
-        ],
+        "botones": None,
         "campo": "user_phone",
     },
     "confirmacion_cita": {
