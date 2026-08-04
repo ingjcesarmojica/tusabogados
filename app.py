@@ -283,47 +283,43 @@ def chat():
             ]
         )
 
-        is_farewell = any(
-            word in message_lower
-            for word in [
-                "gracias",
-                "adiós",
-                "chao",
-                "hasta luego",
-                "no gracias",
-                "eso es todo",
-            ]
+        is_farewell = (
+            message_lower
+            in ["gracias", "adiós", "chao", "hasta luego", "no gracias", "eso es todo"]
+            or message_lower.startswith("gracias ")
+            or message_lower.startswith("adiós ")
+            or message_lower.startswith("chao ")
+            or message_lower.startswith("hasta luego")
+            or message_lower.startswith("no gracias")
+            or message_lower.startswith("eso es todo")
+            or message_lower.endswith("gracias")
+            or message_lower.endswith("adiós")
+            or message_lower.endswith("chao")
         )
 
-        is_question = any(
-            word in message_lower
-            for word in [
-                "¿",
-                "?",
-                "qué",
-                "que",
-                "cómo",
-                "como",
-                "cuál",
-                "cual",
-                "cuáles",
-                "cuales",
-                "cuánto",
-                "cuanto",
-                "dónde",
-                "donde",
-                "quién",
-                "quien",
-                "por qué",
-                "por que",
-                "para qué",
-                "explica",
-                "explicame",
-                "háblame",
-                "hablame",
-                "cuéntame",
-                "cuentame",
-            ]
+        is_question = (
+            message_lower.startswith("¿")
+            or message_lower.startswith("?")
+            or message_lower.startswith("qué ")
+            or message_lower.startswith("que ")
+            or message_lower.startswith("cómo ")
+            or message_lower.startswith("como ")
+            or message_lower.startswith("cuál ")
+            or message_lower.startswith("cual ")
+            or message_lower.startswith("cuáles ")
+            or message_lower.startswith("cuales ")
+            or message_lower.startswith("cuánto ")
+            or message_lower.startswith("cuanto ")
+            or message_lower.startswith("dónde ")
+            or message_lower.startswith("donde ")
+            or message_lower.startswith("quién ")
+            or message_lower.startswith("quien ")
+            or message_lower.startswith("por qué ")
+            or message_lower.startswith("por que ")
+            or message_lower.startswith("para qué ")
+            or message_lower.startswith("para que ")
+            or "¿" in message_lower
+            or "?" in message_lower
         )
 
         paso_actual_id = getattr(chat, "paso_actual", "saludo_inicial")
