@@ -21,8 +21,8 @@ PASOS = {
         "validar": None,
         "botones": [
             {
-                "texto": "Víctima",
-                "valor": "victima",
+                "texto": "Demandado",
+                "valor": "demandado",
                 "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrí algún daño.",
             },
             {

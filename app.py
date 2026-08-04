@@ -598,10 +598,10 @@ def chat():
                     }
                 )
 
-            if accion_boton in ["victima", "demandante"]:
+            if accion_boton in ["demandado", "demandante"]:
                 guardar_estado_campo(
                     "user_role",
-                    "víctima" if accion_boton == "victima" else "demandante",
+                    "demandado" if accion_boton == "demandado" else "demandante",
                 )
                 chat.paso_actual = "categorizacion_caso"
                 paso_cat = obtener_paso("categorizacion_caso")
