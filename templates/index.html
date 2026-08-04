@@ -218,6 +218,16 @@
             min-height: 0;
         }
         
+        .call-messages .buttons-container {
+            padding: 5px 0;
+        }
+        
+        .call-messages .option-btn {
+            font-size: 12px;
+            padding: 8px 14px;
+            min-width: 110px;
+        }
+        
         .call-messages::-webkit-scrollbar {
             width: 3px;
         }
@@ -953,13 +963,34 @@
             }
         }
         
-        function addCallMessage(text, sender) {
+        function addCallMessage(text, sender, buttons = null) {
             const container = document.getElementById('callMessages');
             const msg = document.createElement('div');
             const isError = sender === 'bot' && text.startsWith('Por favor, verifica');
             msg.className = isError ? 'call-message bot error' : `call-message ${sender}`;
             msg.textContent = text;
             container.appendChild(msg);
+            
+            if (buttons && buttons.length > 0 && sender === 'bot') {
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'buttons-container';
+                buttonsDiv.id = 'callButtonsContainer';
+                
+                buttons.forEach(btn => {
+                    const optionBtn = document.createElement('button');
+                    optionBtn.className = 'option-btn';
+                    optionBtn.textContent = btn.texto;
+                    optionBtn.title = btn.descripcion || '';
+                    optionBtn.onclick = function() {
+                        sendCallButtonAction(btn.valor, btn.texto);
+                        disableButtons(buttonsDiv);
+                    };
+                    buttonsDiv.appendChild(optionBtn);
+                });
+                
+                container.appendChild(buttonsDiv);
+            }
+            
             container.scrollTop = container.scrollHeight;
         }
         
@@ -989,8 +1020,44 @@
                     return;
                 }
                 
-                addCallMessage(data.response, 'bot');
-                speakCallText(data.response, data.end_call);
+                addCallMessage(data.response, 'bot', data.buttons);
+                speakCallText(data.response, data.end_call, data.buttons);
+            })
+            .catch(error => {
+                showError("Error de conexión.");
+                startListening();
+            });
+        }
+        
+        function sendCallButtonAction(action, texto) {
+            if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+                recognition = null;
+            }
+            isListening = false;
+            stopCurrentAudio();
+            
+            addCallMessage(texto, 'user');
+            
+            document.getElementById('statusIndicator').innerHTML = "Procesando<span class='typing-dots'><span></span><span></span><span></span></span>";
+            
+            const body = { message: texto, action: action };
+            
+            fetch(CHAT_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError("Error procesando tu mensaje.");
+                    startListening();
+                    return;
+                }
+                
+                addCallMessage(data.response, 'bot', data.buttons);
+                speakCallText(data.response, data.end_call, data.buttons);
             })
             .catch(error => {
                 showError("Error de conexión.");
