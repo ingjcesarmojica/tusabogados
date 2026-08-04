@@ -108,7 +108,7 @@ PASOS = {
     "confirmacion_cita": {
         "id": "confirmacion_cita",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "¡Su cita ha sido confirmada!",
+        "mensaje": "¡Su cita ha sido confirmada! Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.",
         "validar": None,
         "botones": None,
     },
