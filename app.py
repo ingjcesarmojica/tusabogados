@@ -227,15 +227,25 @@ def limpiar_estado_chat():
 
 def obtener_estado_chat():
     """Obtiene el estado actual de la conversación como diccionario."""
+    user_name = getattr(chat, "user_name", "")
+    user_role = getattr(chat, "user_role", "")
+    case_category = getattr(chat, "case_category", "")
+    user_email = getattr(chat, "user_email", "")
+    user_phone = getattr(chat, "user_phone", "")
     return {
-        "user_name": getattr(chat, "user_name", ""),
-        "user_email": getattr(chat, "user_email", ""),
-        "user_phone": getattr(chat, "user_phone", ""),
+        "user_name": user_name,
+        "nombre": user_name,
+        "user_email": user_email,
+        "correo": user_email,
+        "user_phone": user_phone,
+        "telefono": user_phone,
         "case_description": getattr(chat, "case_description", ""),
         "case_subtype": getattr(chat, "case_subtype", ""),
         "appointment_time": getattr(chat, "appointment_time", ""),
-        "user_role": getattr(chat, "user_role", ""),
-        "case_category": getattr(chat, "case_category", ""),
+        "user_role": user_role,
+        "rol": user_role,
+        "case_category": case_category,
+        "categoria": case_category,
         "paso_actual": getattr(chat, "paso_actual", "saludo_inicial"),
     }
 
@@ -742,10 +752,8 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
                 chat.case_description = result
                 chat.paso_actual = "captura_correo"
                 paso_correo = obtener_paso("captura_correo")
-                name = getattr(chat, "user_name", "")
-                response = (
-                    f"Gracias {name} por la información. {paso_correo['mensaje']}"
-                )
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_correo, datos)
                 return jsonify(
                     {
                         "response": response,
@@ -770,8 +778,8 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
                 chat.user_email = result
                 chat.paso_actual = "captura_telefono"
                 paso_tel = obtener_paso("captura_telefono")
-                name = getattr(chat, "user_name", "")
-                response = f"Correo registrado correctamente. {paso_tel['mensaje'].format(nombre=name)}"
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_tel, datos)
                 return jsonify(
                     {
                         "response": response,
@@ -795,8 +803,8 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
             if valid:
                 chat.user_phone = result
                 chat.paso_actual = "confirmacion_cita"
-                name = getattr(chat, "user_name", "")
-                response = f"Perfecto {name}. Tenemos toda la información necesaria. Le propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
+                datos = obtener_estado_chat()
+                response = f"Perfecto {datos['nombre']}. Tenemos toda la información necesaria. Le propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
                 buttons = [
                     {"texto": "Sí, confirmo", "valor": "confirmar", "descripcion": ""},
                     {
