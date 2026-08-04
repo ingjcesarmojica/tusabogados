@@ -1014,8 +1014,8 @@
                 phoneWaves.classList.remove('ringing');
                 phoneWaves.classList.add('connected');
                 document.getElementById('startCallBtn').style.background = '#ef4444';
-                document.getElementById('statusIndicator').textContent = 'Claudia contesta...';
-                sendCallMessage('hola');
+                    document.getElementById('statusIndicator').textContent = 'Claudia contesta...';
+                    sendCallMessage('', 'nueva_llamada');
             }, 3600);
         }
         

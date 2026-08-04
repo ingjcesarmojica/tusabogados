@@ -267,6 +267,21 @@ def chat():
         if not message and not accion_boton:
             return jsonify({"error": "No message provided"}), 400
 
+        if accion_boton == "nueva_llamada":
+            limpiar_estado_chat()
+            chat.paso_actual = "saludo_inicial"
+            chat.datos_usuario = {}
+            paso = obtener_paso("saludo_inicial")
+            response = paso["mensaje"]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": None,
+                    "step": "saludo_inicial",
+                }
+            )
+
         message_lower = (message or "").lower().strip()
 
         is_greeting = any(
