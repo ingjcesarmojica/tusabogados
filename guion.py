@@ -219,6 +219,290 @@ def formatear_mensaje(paso, datos):
         return mensaje
 
 
+def validar_nombre(respuesta):
+    """
+    Valida que el nombre sea válido:
+    - Mínimo 2 caracteres
+    - No puede ser solo números
+    - No puede ser una sola letra
+    - Debe tener al menos un espacio (nombre completo)
+    - No puede contener caracteres especiales peligrosos
+    - No puede ser palabras sin sentido como "asd", "123", etc.
+    """
+    import re
+
+    if not respuesta or len(respuesta.strip()) < 2:
+        return (
+            False,
+            "Por favor, indíqueme su nombre completo para proceder con la cita.",
+        )
+
+    respuesta = respuesta.strip()
+
+    # No puede ser solo números
+    if respuesta.isdigit():
+        return (
+            False,
+            "El nombre no puede ser solo números. Por favor, indíqueme su nombre completo.",
+        )
+
+    # No puede ser una sola letra
+    if len(respuesta) == 1:
+        return False, "Por favor, indíqueme su nombre completo (nombre y apellido)."
+
+    # Debe tener al menos 2 palabras (nombre y apellido)
+    palabras = respuesta.split()
+    if len(palabras) < 2:
+        return (
+            False,
+            "Por favor, indíqueme tanto su nombre como su apellido (ejemplo: Juan Pérez).",
+        )
+
+    # No puede contener caracteres especiales peligrosos
+    caracteres_prohibidos = set("@#$%&*(){}[]|/<>!£¥¢§¶™®©")
+    if any(char in caracteres_prohibidos for char in respuesta):
+        return (
+            False,
+            "El nombre contiene caracteres no válidos. Por favor, ingrese solo letras y espacios.",
+        )
+
+    # No puede tener números intercalados
+    if re.search(r"[a-zA-Z]\d[a-zA-Z]", respuesta):
+        return (
+            False,
+            "El nombre no debe contener números. Por favor, indíqueme su nombre completo.",
+        )
+
+    # Verificar que no sea una palabra sin sentido (todas las letras iguales o patrón repetitivo)
+    if len(set(respuesta.replace(" ", ""))) < 3:
+        return (
+            False,
+            "El nombre ingresado no parece válido. Por favor, indíqueme su nombre completo.",
+        )
+
+    # Cada palabra debe tener al menos 2 letras
+    for palabra in palabras:
+        if len(palabra) < 2:
+            return (
+                False,
+                "Cada parte del nombre debe tener al menos 2 letras. Por favor, indíqueme su nombre completo.",
+            )
+
+    return True, respuesta.title()
+
+
+def validar_correo(respuesta):
+    """
+    Valida que el correo electrónico sea válido:
+    - Formato correcto
+    - Dominio existe
+    - No tiene caracteres extraños
+    """
+    import re
+
+    if not respuesta:
+        return (
+            False,
+            "¿Cuál es su correo electrónico? Lo necesito para enviarle la confirmación de la cita.",
+        )
+
+    respuesta = respuesta.strip().lower()
+
+    # Formato básico
+    patron = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if not re.match(patron, respuesta):
+        return (
+            False,
+            "El correo electrónico no tiene un formato válido. Ejemplo: nombre@correo.com",
+        )
+
+    # Verificar que no tenga caracteres extraños
+    if ".." in respuesta or "--" in respuesta or "__" in respuesta:
+        return (
+            False,
+            "El correo electrónico contiene caracteres repetidos. Por favor, verifíquelo.",
+        )
+
+    # Dominios comunes válidos
+    dominios_validos = [
+        "gmail.com",
+        "hotmail.com",
+        "outlook.com",
+        "yahoo.com",
+        "live.com",
+        "icloud.com",
+        "aol.com",
+        "protonmail.com",
+        "mail.com",
+        "zoho.com",
+        "yandex.com",
+        "gmx.com",
+        "fastmail.com",
+        "tutanota.com",
+        "colombia.com",
+        "etb.net.co",
+        "movistar.com.co",
+        "claro.com.co",
+        "une.net.co",
+        "telmex.com",
+        "prodigy.net",
+        "comcast.net",
+    ]
+
+    dominio = respuesta.split("@")[1] if "@" in respuesta else ""
+    if dominio and "." in dominio:
+        # Verificar si es un dominio conocido o tiene formato válido
+        partes_dominio = dominio.split(".")
+        if len(partes_dominio) < 2:
+            return False, "El dominio del correo electrónico no es válido."
+
+    return True, respuesta
+
+
+def validar_telefono(respuesta):
+    """
+    Valida número de teléfono colombiano:
+    - 10 dígitos exactos
+    - Móviles: empiezan por 3 (300-350)
+    - Fijos Bogotá: empiezan por 1 (601xxxxxxx)
+    - Fijos Medellín: empiezan por 4 (604xxxxxxx)
+    - Fijos Cali: empiezan por 2 (602xxxxxxx)
+    - Fijos Barranquilla: empiezan por 5 (605xxxxxxx)
+    - Fijos Bucaramanga: empiezan por 7 (607xxxxxxx)
+    - Fijos Pereira: empiezan por 6 (606xxxxxxx)
+    """
+    import re
+
+    if not respuesta:
+        return False, "¿Cuál es su número de teléfono de contacto?"
+
+    # Limpiar el número
+    digits = re.sub(r"[^0-9]", "", respuesta)
+
+    # Debe tener 10 dígitos
+    if len(digits) != 10:
+        return (
+            False,
+            "El número de teléfono debe tener exactamente 10 dígitos. Ejemplo: 3001234567",
+        )
+
+    # No puede ser todos los dígitos iguales
+    if len(set(digits)) == 1:
+        return False, "El número de teléfono no es válido. Por favor, verifíquelo."
+
+    # Móviles colombianos: empiezan por 3
+    if digits[0] == "3":
+        prefijos_moviles = [
+            "300",
+            "301",
+            "302",
+            "303",
+            "304",
+            "305",
+            "310",
+            "311",
+            "312",
+            "313",
+            "314",
+            "315",
+            "316",
+            "317",
+            "318",
+            "319",
+            "320",
+            "321",
+            "322",
+            "323",
+            "350",
+        ]
+        prefijo = digits[:3]
+        if prefijo not in prefijos_moviles:
+            return (
+                False,
+                f"El prefijo {prefijo} no corresponde a una operadora válida en Colombia. Prefijos móviles válidos: 300-323, 350",
+            )
+        return True, digits
+
+    # Fijos colombianos: segundo dígito indica la ciudad
+    if digits[0] == "6" and digits[1] == "0":
+        ciudad = digits[2]
+        ciudades_validas = {
+            "1": "Bogotá",
+            "2": "Cali",
+            "4": "Medellín",
+            "5": "Barranquilla",
+            "6": "Pereira",
+            "7": "Bucaramanga",
+        }
+        if ciudad in ciudades_validas:
+            return True, digits
+        else:
+            return (
+                False,
+                f"El prefijo 60{ciudad} no corresponde a una ciudad válida en Colombia.",
+            )
+
+    # Otros números fijos válidos (empiezan por 1, 4, 5, 7, 8)
+    if digits[0] in "14578":
+        return True, digits
+
+    return (
+        False,
+        "El número no corresponde a un teléfono válido en Colombia. Los móviles empiezan por 3 y los fijos por 60X.",
+    )
+
+
+def validar_descripcion(respuesta):
+    """
+    Valida que la descripción sea lógica:
+    - Mínimo 10 caracteres
+    - Al menos 3 palabras
+    - No puede ser solo números
+    - Debe contener letras
+    """
+    import re
+
+    if not respuesta or len(respuesta.strip()) < 10:
+        return (
+            False,
+            "La descripción debe tener al menos 10 caracteres. Por favor, describa brevemente su caso.",
+        )
+
+    respuesta = respuesta.strip()
+
+    # No puede ser solo números o caracteres especiales
+    if re.sub(r"[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]", "", respuesta).strip() == "":
+        return (
+            False,
+            "La descripción debe contener texto. Por favor, describa los hechos de su caso.",
+        )
+
+    # Debe tener al menos 3 palabras
+    palabras = respuesta.split()
+    if len(palabras) < 3:
+        return (
+            False,
+            "Por favor, proporcione más detalles. Describe qué pasó, cuándo y con quién.",
+        )
+
+    # No puede tener solo caracteres repetidos
+    texto_limpio = respuesta.replace(" ", "").replace(".", "").replace(",", "")
+    if len(set(texto_limpio.lower())) < 4:
+        return (
+            False,
+            "La descripción no parece contener información relevante. Por favor, describa su caso.",
+        )
+
+    # No puede ser solo signos de interrogación o exclamación
+    if re.sub(r"[¿?!¡.,\s]", "", respuesta).strip() == "":
+        return (
+            False,
+            "La descripción debe contener el relato de los hechos. Por favor, describa su caso.",
+        )
+
+    return True, respuesta
+
+
 def validar_respuesta(paso, respuesta):
     """Valida la respuesta del usuario según el tipo de campo del paso."""
     tipo_validacion = paso.get("validar")
@@ -227,52 +511,15 @@ def validar_respuesta(paso, respuesta):
         return True, respuesta
 
     if tipo_validacion == "nombre":
-        if not respuesta or len(respuesta.strip()) < 2:
-            return (
-                False,
-                "Por favor, indíqueme su nombre completo para proceder con la cita.",
-            )
-        if any(char.isdigit() for char in respuesta):
-            return (
-                False,
-                "El nombre ingresado no parece válido. Por favor, indíqueme su nombre completo.",
-            )
-        return True, respuesta.strip()
+        return validar_nombre(respuesta)
 
     if tipo_validacion == "correo":
-        import re
-
-        if not respuesta:
-            return (
-                False,
-                "¿Cuál es su correo electrónico? Lo necesito para enviarle la confirmación de la cita.",
-            )
-        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", respuesta):
-            return (
-                False,
-                "El correo electrónico ingresado no tiene un formato válido. Por favor, verifíquelo e ingréselo nuevamente (ejemplo: nombre@correo.com).",
-            )
-        return True, respuesta.strip()
+        return validar_correo(respuesta)
 
     if tipo_validacion == "telefono":
-        import re
-
-        if not respuesta:
-            return False, "¿Cuál es su número de teléfono de contacto?"
-        digits = re.sub(r"[^0-9]", "", respuesta)
-        if len(digits) < 7 or len(digits) > 15:
-            return (
-                False,
-                "El número de teléfono ingresado no parece correcto. Por favor, verifíquelo e ingréselo sin espacios ni guiones (ejemplo: 3001234567).",
-            )
-        return True, digits
+        return validar_telefono(respuesta)
 
     if tipo_validacion == "descripcion":
-        if not respuesta or len(respuesta.strip()) < 5:
-            return (
-                False,
-                "Le agradecería que me describa brevemente los hechos de su caso: fechas, personas involucradas y circunstancias.",
-            )
-        return True, respuesta.strip()
+        return validar_descripcion(respuesta)
 
     return True, respuesta
