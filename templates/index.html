@@ -1025,12 +1025,8 @@
             isSpeaking = false;
             
             stopCurrentAudio();
+            stopRecognition();
             stopRingtone();
-            
-            if (recognition) {
-                try { recognition.stop(); } catch(e) {}
-                recognition = null;
-            }
             
             if ('speechSynthesis' in window) speechSynthesis.cancel();
             
@@ -1092,7 +1088,12 @@
         function sendCallMessage(message, action = null) {
             if (!isCalling) return;
             
-            document.getElementById('statusIndicator').innerHTML = "Procesando<span class='typing-dots'><span></span><span></span><span></span></span>";
+            isListening = false;
+            isSpeaking = false;
+            stopCurrentAudio();
+            
+            document.getElementById('statusIndicator').textContent = "Procesando...";
+            document.getElementById('pulseRings').classList.add('active');
             
             addCallMessage(message, 'user');
             
@@ -1108,9 +1109,11 @@
             .then(data => {
                 if (!isCalling) return;
                 
+                document.getElementById('pulseRings').classList.remove('active');
+                
                 if (data.error) {
-                    showError("Error procesando tu mensaje.");
-                    setTimeout(() => { if (isCalling) startListening(); }, 1000);
+                    document.getElementById('statusIndicator').textContent = "Error - Intentando de nuevo...";
+                    setTimeout(() => { if (isCalling) startListening(); }, 2000);
                     return;
                 }
                 
@@ -1119,24 +1122,25 @@
             })
             .catch(error => {
                 if (!isCalling) return;
-                showError("Error de conexión.");
-                setTimeout(() => { if (isCalling) startListening(); }, 1000);
+                document.getElementById('pulseRings').classList.remove('active');
+                document.getElementById('statusIndicator').textContent = "Error de conexión...";
+                setTimeout(() => { if (isCalling) startListening(); }, 2000);
             });
         }
         
         function sendCallButtonAction(action, texto) {
             if (!isCalling) return;
             
-            if (recognition) {
-                try { recognition.stop(); } catch(e) {}
-                recognition = null;
-            }
-            isListening = false;
+            stopRecognition();
             stopCurrentAudio();
             
-            addCallMessage(texto, 'user');
+            isListening = false;
+            isSpeaking = false;
             
-            document.getElementById('statusIndicator').innerHTML = "Procesando<span class='typing-dots'><span></span><span></span><span></span></span>";
+            document.getElementById('statusIndicator').textContent = "Procesando...";
+            document.getElementById('pulseRings').classList.add('active');
+            
+            addCallMessage(texto, 'user');
             
             const body = { message: texto, action: action };
             
@@ -1149,9 +1153,11 @@
             .then(data => {
                 if (!isCalling) return;
                 
+                document.getElementById('pulseRings').classList.remove('active');
+                
                 if (data.error) {
-                    showError("Error procesando tu mensaje.");
-                    setTimeout(() => { if (isCalling) startListening(); }, 1000);
+                    document.getElementById('statusIndicator').textContent = "Error - Intentando de nuevo...";
+                    setTimeout(() => { if (isCalling) startListening(); }, 2000);
                     return;
                 }
                 
@@ -1160,8 +1166,9 @@
             })
             .catch(error => {
                 if (!isCalling) return;
-                showError("Error de conexión.");
-                setTimeout(() => { if (isCalling) startListening(); }, 1000);
+                document.getElementById('pulseRings').classList.remove('active');
+                document.getElementById('statusIndicator').textContent = "Error de conexión...";
+                setTimeout(() => { if (isCalling) startListening(); }, 2000);
             });
         }
         
@@ -1169,10 +1176,13 @@
             if (!isCalling) return;
             
             stopCurrentAudio();
+            stopRecognition();
             
             isSpeaking = true;
+            isListening = false;
             stopRingtone();
-            document.getElementById('statusIndicator').textContent = "Hablando...";
+            
+            document.getElementById('statusIndicator').textContent = "Claudia habla...";
             document.getElementById('pulseRings').classList.add('active');
             
             fetch(SPEAK_API_URL, {
@@ -1194,7 +1204,8 @@
                         if (endCallAfter) {
                             endCall();
                         } else {
-                            setTimeout(() => { if (isCalling) startListening(); }, 500);
+                            document.getElementById('statusIndicator').textContent = "Esperando tu respuesta...";
+                            setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 800);
                         }
                     };
                     currentAudio.onerror = function() {
@@ -1203,21 +1214,30 @@
                         document.getElementById('pulseRings').classList.remove('active');
                         if (!isCalling) return;
                         if (endCallAfter) endCall();
-                        else setTimeout(() => { if (isCalling) startListening(); }, 500);
+                        else {
+                            document.getElementById('statusIndicator').textContent = "Esperando tu respuesta...";
+                            setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 800);
+                        }
                     };
                     currentAudio.play().catch(() => {
                         isSpeaking = false;
                         document.getElementById('pulseRings').classList.remove('active');
                         if (!isCalling) return;
                         if (endCallAfter) endCall();
-                        else setTimeout(() => { if (isCalling) startListening(); }, 500);
+                        else {
+                            document.getElementById('statusIndicator').textContent = "Esperando tu respuesta...";
+                            setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 800);
+                        }
                     });
                 } else {
                     isSpeaking = false;
                     document.getElementById('pulseRings').classList.remove('active');
                     if (!isCalling) return;
                     if (endCallAfter) endCall();
-                    else setTimeout(() => { if (isCalling) startListening(); }, 500);
+                    else {
+                        document.getElementById('statusIndicator').textContent = "Esperando tu respuesta...";
+                        setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 800);
+                    }
                 }
             })
             .catch(() => {
@@ -1225,46 +1245,73 @@
                 document.getElementById('pulseRings').classList.remove('active');
                 if (!isCalling) return;
                 if (endCallAfter) endCall();
-                else setTimeout(() => { if (isCalling) startListening(); }, 500);
+                else {
+                    document.getElementById('statusIndicator').textContent = "Esperando tu respuesta...";
+                    setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 800);
+                }
             });
+        }
+        
+        function stopRecognition() {
+            if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+                recognition = null;
+            }
+            isListening = false;
         }
         
         function startListening() {
             if (!isCalling || isSpeaking || isListening) return;
             
-            if (recognition) {
-                try { recognition.stop(); } catch(e) {}
-                recognition = null;
-            }
+            stopRecognition();
             
             recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.lang = 'es-MX';
             recognition.continuous = false;
             recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
             
             recognition.onstart = function() {
+                if (!isCalling || isSpeaking) return;
                 isListening = true;
                 document.getElementById('statusIndicator').textContent = "Escuchando...";
                 document.getElementById('pulseRings').classList.add('active');
             };
             
             recognition.onresult = function(event) {
+                if (!isCalling) return;
+                
                 const transcript = event.results[0][0].transcript;
+                const confidence = event.results[0][0].confidence;
+                
                 isListening = false;
                 document.getElementById('pulseRings').classList.remove('active');
+                
                 try { recognition.stop(); } catch(e) {}
                 recognition = null;
-                sendCallMessage(transcript);
+                
+                if (transcript && transcript.trim().length > 0) {
+                    sendCallMessage(transcript);
+                } else {
+                    setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 1000);
+                }
             };
             
             recognition.onerror = function(event) {
                 isListening = false;
                 document.getElementById('pulseRings').classList.remove('active');
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                
+                if (event.error === 'no-speech') {
+                    if (isCalling && !isSpeaking) {
+                        setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 1500);
+                    }
+                } else if (event.error === 'aborted') {
+                    // User or system aborted, do nothing
+                } else {
                     console.error('Error reconocimiento:', event.error);
-                }
-                if (isCalling && !isSpeaking) {
-                    setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 1500);
+                    if (isCalling && !isSpeaking) {
+                        setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 2000);
+                    }
                 }
             };
             
@@ -1278,6 +1325,9 @@
             } catch(e) {
                 console.error('Error micrófono:', e);
                 recognition = null;
+                if (isCalling && !isSpeaking) {
+                    setTimeout(() => { if (isCalling && !isSpeaking) startListening(); }, 2000);
+                }
             }
         }
         
