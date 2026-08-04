@@ -696,190 +696,151 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
                     }
                 )
 
-        if paso_actual_id == "saludo_inicial":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.user_name = result
-                chat.paso_actual = "identificacion_rol"
-                paso_rol = obtener_paso("identificacion_rol")
-                response = f"Mucho gusto {result}. {paso_rol['mensaje']}"
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": paso_rol.get("botones"),
-                        "step": "identificacion_rol",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
+        if paso_actual_id in [
+            "saludo_inicial",
+            "captura_nombre",
+            "descripcion_caso",
+            "captura_correo",
+            "captura_telefono",
+        ]:
+            if paso_actual_id == "saludo_inicial":
+                valid, result = validar_respuesta(paso_actual, message)
+                if valid:
+                    chat.user_name = result
+                    chat.paso_actual = "identificacion_rol"
+                    paso_rol = obtener_paso("identificacion_rol")
+                    response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": paso_rol.get("botones"),
+                            "step": "identificacion_rol",
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "response": result,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": paso_actual_id,
+                        }
+                    )
 
-        if paso_actual_id == "captura_nombre":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.user_name = result
-                chat.paso_actual = "identificacion_rol"
-                paso_rol = obtener_paso("identificacion_rol")
-                response = f"Mucho gusto {result}. {paso_rol['mensaje']}"
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": paso_rol.get("botones"),
-                        "step": "identificacion_rol",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
+            if paso_actual_id == "captura_nombre":
+                valid, result = validar_respuesta(paso_actual, message)
+                if valid:
+                    chat.user_name = result
+                    chat.paso_actual = "identificacion_rol"
+                    paso_rol = obtener_paso("identificacion_rol")
+                    response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": paso_rol.get("botones"),
+                            "step": "identificacion_rol",
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "response": result,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": paso_actual_id,
+                        }
+                    )
 
-        if paso_actual_id == "descripcion_caso":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.case_description = result
-                chat.paso_actual = "captura_correo"
-                paso_correo = obtener_paso("captura_correo")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_correo, datos)
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": "captura_correo",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
+            if paso_actual_id == "descripcion_caso":
+                valid, result = validar_respuesta(paso_actual, message)
+                if valid:
+                    chat.case_description = result
+                    chat.paso_actual = "captura_correo"
+                    paso_correo = obtener_paso("captura_correo")
+                    datos = obtener_estado_chat()
+                    response = formatear_mensaje(paso_correo, datos)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": "captura_correo",
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "response": result,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": paso_actual_id,
+                        }
+                    )
 
-        if paso_actual_id == "captura_correo":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.user_email = result
-                chat.paso_actual = "captura_telefono"
-                paso_tel = obtener_paso("captura_telefono")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_tel, datos)
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": paso_tel.get("botones"),
-                        "step": "captura_telefono",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
+            if paso_actual_id == "captura_correo":
+                valid, result = validar_respuesta(paso_actual, message)
+                if valid:
+                    chat.user_email = result
+                    chat.paso_actual = "captura_telefono"
+                    paso_tel = obtener_paso("captura_telefono")
+                    datos = obtener_estado_chat()
+                    response = formatear_mensaje(paso_tel, datos)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": paso_tel.get("botones"),
+                            "step": "captura_telefono",
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "response": result,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": paso_actual_id,
+                        }
+                    )
 
-        if paso_actual_id == "captura_telefono":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.user_phone = result
-                chat.paso_actual = "confirmacion_cita"
-                datos = obtener_estado_chat()
-                response = f"Perfecto {datos['nombre']}. Tenemos toda la información necesaria. Le propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
-                buttons = [
-                    {"texto": "Sí, confirmo", "valor": "confirmar", "descripcion": ""},
-                    {
-                        "texto": "No, otro horario",
-                        "valor": "rechazar",
-                        "descripcion": "",
-                    },
-                ]
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": buttons,
-                        "step": "captura_telefono",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
-
-        if paso_actual_id == "confirmacion_cita":
-            if accion_boton == "confirmar" or any(
-                w in message_lower for w in ["sí", "si", "ok", "confirmo", "de acuerdo"]
-            ):
-                chat.appointment_time = "Lunes 29 de Septiembre - 10:30 am"
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
-                email = getattr(chat, "user_email", "")
-                phone = getattr(chat, "user_phone", "")
-                category = getattr(chat, "case_category", "")
-                response = f"""📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.
-📧 Correo de confirmación: {email}
-📱 Teléfono de contacto: {phone}
-
-He analizado su caso de {category}. Le comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
-
-¿Hay algo más en lo que pueda ayudarle?"""
-                buttons = [
-                    {
-                        "texto": "Sí, tengo otra pregunta",
-                        "valor": "consulta_adicional",
-                        "descripcion": "",
-                    },
-                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
-                ]
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": buttons,
-                        "step": "manejo_post_cita",
-                    }
-                )
-            if accion_boton == "rechazar" or any(
-                w in message_lower
-                for w in ["no", "no me viene", "otro horario", "otra hora"]
-            ):
-                chat.paso_actual = "rechazo_horario"
-                paso_rechazo = obtener_paso("rechazo_horario")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_rechazo, datos)
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": paso_rechazo.get("botones"),
-                        "step": "rechazo_horario",
-                    }
-                )
+            if paso_actual_id == "captura_telefono":
+                valid, result = validar_respuesta(paso_actual, message)
+                if valid:
+                    chat.user_phone = result
+                    chat.paso_actual = "confirmacion_cita"
+                    datos = obtener_estado_chat()
+                    response = f"Perfecto {datos['nombre']}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
+                    buttons = [
+                        {
+                            "texto": "Sí, confirmo",
+                            "valor": "confirmar",
+                            "descripcion": "",
+                        },
+                        {
+                            "texto": "No, otro horario",
+                            "valor": "rechazar",
+                            "descripcion": "",
+                        },
+                    ]
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "captura_telefono",
+                        }
+                    )
+                else:
+                    return jsonify(
+                        {
+                            "response": result,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": paso_actual_id,
+                        }
+                    )
 
         response = "¿Hay algo más en lo que pueda ayudarle?"
         buttons = [
