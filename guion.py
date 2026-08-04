@@ -10,7 +10,7 @@ PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "identificacion_rol",
-        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Por favor, dime tu nombre.",
+        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Después de la señal, por favor pronuncia claramente tu nombre y apellido.",
         "validar": "nombre",
         "botones": None,
     },
@@ -65,7 +65,7 @@ PASOS = {
     "descripcion_caso": {
         "id": "descripcion_caso",
         "siguiente": "captura_correo",
-        "mensaje": "Categoría {categoria} registrada. Ahora, descríbame brevemente su caso para entender mejor tu situación.",
+        "mensaje": "Categoría {categoria} registrada. Ahora, descríbame brevemente su caso para entender mejor tu situación. Después de la señal, por favor describe brevemente los hechos de tu caso.",
         "validar": "descripcion",
         "botones": None,
         "campo": "case_description",
@@ -73,7 +73,7 @@ PASOS = {
     "captura_correo": {
         "id": "captura_correo",
         "siguiente": "captura_telefono",
-        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico?",
+        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico? Después de la señal, por favor pronuncia claramente tu correo electrónico.",
         "validar": "correo",
         "botones": None,
         "campo": "user_email",
@@ -81,7 +81,7 @@ PASOS = {
     "captura_telefono": {
         "id": "captura_telefono",
         "siguiente": "confirmacion_cita",
-        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número?",
+        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número? Después de la señal, por favor pronuncia claramente tu número de teléfono.",
         "validar": "telefono",
         "botones": None,
         "campo": "user_phone",
@@ -206,7 +206,7 @@ def validar_nombre(respuesta):
     """
     import re
 
-    MENSAJE_NOMBRE = "Por favor, verifica que el nombre sea válido e intenta de nuevo. Debe ser tu nombre y apellido."
+    MENSAJE_NOMBRE = "Por favor, verifica que el nombre sea válido e intenta de nuevo. Debe ser tu nombre y apellido. Después de la señal, pronuncia claramente tu nombre y apellido."
 
     if not respuesta or len(respuesta.strip()) < 2:
         return False, MENSAJE_NOMBRE
@@ -250,7 +250,7 @@ def validar_correo(respuesta):
     """
     import re
 
-    MENSAJE_CORREO = "Por favor, verifica que el correo electrónico sea válido e intenta de nuevo. Ejemplo: nombre@correo.com"
+    MENSAJE_CORREO = "Por favor, verifica que el correo electrónico sea válido e intenta de nuevo. Ejemplo: nombre@correo.com. Después de la señal, pronuncia claramente tu correo electrónico."
 
     if not respuesta:
         return False, MENSAJE_CORREO
@@ -276,7 +276,7 @@ def validar_telefono(respuesta):
     """
     import re
 
-    MENSAJE_TELEFONO = "Por favor, verifica que el número de teléfono sea válido e intenta de nuevo. Debe tener 10 dígitos."
+    MENSAJE_TELEFONO = "Por favor, verifica que el número de teléfono sea válido e intenta de nuevo. Debe tener 10 dígitos. Después de la señal, pronuncia claramente tu número de teléfono."
 
     if not respuesta:
         return False, "¿Cuál es su número de teléfono de contacto?"
@@ -345,7 +345,7 @@ def validar_descripcion(respuesta):
     """
     import re
 
-    MENSAJE_DESCRIPCION = "Por favor, verifica que la descripción sea válida e intenta de nuevo. Describe brevemente los hechos de tu caso."
+    MENSAJE_DESCRIPCION = "Por favor, verifica que la descripción sea válida e intenta de nuevo. Describe brevemente los hechos de tu caso. Después de la señal, describe brevemente tu caso."
 
     if not respuesta or len(respuesta.strip()) < 10:
         return False, MENSAJE_DESCRIPCION

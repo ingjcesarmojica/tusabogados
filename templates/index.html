@@ -702,6 +702,7 @@
         let chatHistory = [];
         let ringtoneInterval = null;
         let ringtoneCtx = null;
+        let listeningTimeout = null;
         
         const CHAT_API_URL = '/api/chat';
         const SPEAK_API_URL = '/api/speak';
@@ -1026,6 +1027,7 @@
             
             stopCurrentAudio();
             stopRecognition();
+            stopListeningTimeout();
             stopRingtone();
             
             if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -1089,6 +1091,7 @@
             if (!isCalling) return;
             stopCurrentAudio();
             stopRecognition();
+            stopListeningTimeout();
             
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
             
@@ -1126,6 +1129,7 @@
             if (!isCalling) return;
             stopRecognition();
             stopCurrentAudio();
+            stopListeningTimeout();
             
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
             
@@ -1180,34 +1184,74 @@
                         currentAudio = null;
                         if (!isCalling) return;
                         if (endCallAfter) { endCall(); }
-                        else { document.getElementById('statusIndicator').textContent = "Escuchando..."; startListening(); }
+                        else { playBeep(); }
                     };
                     currentAudio.onerror = function() {
                         isSpeaking = false;
                         currentAudio = null;
                         if (!isCalling) return;
                         if (endCallAfter) endCall();
-                        else { document.getElementById('statusIndicator').textContent = "Escuchando..."; startListening(); }
+                        else { playBeep(); }
                     };
                     currentAudio.play().catch(function() {
                         isSpeaking = false;
                         if (!isCalling) return;
                         if (endCallAfter) endCall();
-                        else { document.getElementById('statusIndicator').textContent = "Escuchando..."; startListening(); }
+                        else { playBeep(); }
                     });
                 } else {
                     isSpeaking = false;
                     if (!isCalling) return;
                     if (endCallAfter) endCall();
-                    else { document.getElementById('statusIndicator').textContent = "Escuchando..."; startListening(); }
+                    else { playBeep(); }
                 }
             })
             .catch(function() {
                 isSpeaking = false;
                 if (!isCalling) return;
                 if (endCallAfter) endCall();
-                else { document.getElementById('statusIndicator').textContent = "Escuchando..."; startListening(); }
+                else { playBeep(); }
             });
+        }
+        
+        function playBeep() {
+            if (!isCalling) return;
+            var beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = beepCtx.createOscillator();
+            var gain = beepCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 800;
+            gain.gain.setValueAtTime(0.3, beepCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, beepCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(beepCtx.destination);
+            osc.start(beepCtx.currentTime);
+            osc.stop(beepCtx.currentTime + 0.3);
+            osc.onended = function() {
+                beepCtx.close().catch(function() {});
+                if (isCalling && !isSpeaking) {
+                    document.getElementById('statusIndicator').textContent = "Escuchando...";
+                    startListening();
+                    startListeningTimeout();
+                }
+            };
+        }
+        
+        function startListeningTimeout() {
+            stopListeningTimeout();
+            listeningTimeout = setTimeout(function() {
+                if (!isCalling || isSpeaking) return;
+                stopRecognition();
+                document.getElementById('statusIndicator').textContent = "No te escuché...";
+                speakCallText("No te escuché bien. Por favor, después de la señal pronuncia claramente el dato solicitado.", false);
+            }, 5000);
+        }
+        
+        function stopListeningTimeout() {
+            if (listeningTimeout) {
+                clearTimeout(listeningTimeout);
+                listeningTimeout = null;
+            }
         }
         
         function stopRecognition() {
@@ -1237,6 +1281,7 @@
                 if (!isCalling) return;
                 var transcript = event.results[0][0].transcript;
                 isListening = false;
+                stopListeningTimeout();
                 try { recognition.stop(); } catch(e) {}
                 recognition = null;
                 if (transcript && transcript.trim().length > 0) {
@@ -1244,6 +1289,7 @@
                 } else {
                     document.getElementById('statusIndicator').textContent = "Escuchando...";
                     startListening();
+                    startListeningTimeout();
                 }
             };
             
