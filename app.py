@@ -283,20 +283,17 @@ def chat():
             ]
         )
 
-        if is_greeting:
-            limpiar_estado_chat()
-            chat.paso_actual = "saludo_inicial"
-            chat.datos_usuario = {}
-            paso = obtener_paso("saludo_inicial")
-            response = paso["mensaje"]
-            return jsonify(
-                {
-                    "response": response,
-                    "end_call": False,
-                    "buttons": None,
-                    "step": "saludo_inicial",
-                }
-            )
+        is_farewell = any(
+            word in message_lower
+            for word in [
+                "gracias",
+                "adiós",
+                "chao",
+                "hasta luego",
+                "no gracias",
+                "eso es todo",
+            ]
+        )
 
         is_question = any(
             word in message_lower
@@ -329,25 +326,28 @@ def chat():
             ]
         )
 
-        is_farewell = any(
-            word in message_lower
-            for word in [
-                "gracias",
-                "adiós",
-                "chao",
-                "hasta luego",
-                "no gracias",
-                "eso es todo",
-            ]
-        )
-
         paso_actual_id = getattr(chat, "paso_actual", "saludo_inicial")
         paso_actual = obtener_paso(paso_actual_id)
+
+        if is_greeting and paso_actual_id == "saludo_inicial":
+            limpiar_estado_chat()
+            chat.paso_actual = "saludo_inicial"
+            chat.datos_usuario = {}
+            paso = obtener_paso("saludo_inicial")
+            response = paso["mensaje"]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": None,
+                    "step": "saludo_inicial",
+                }
+            )
 
         if paso_actual and paso_actual.get("fin"):
             if is_farewell or accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted {name}. Ha sido un placer atenderle. Un abogado se comunicará con usted en la fecha acordada. ¡Que tenga un excelente día!"
+                response = f"Gracias a ti, {name}. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {
@@ -361,7 +361,7 @@ def chat():
         if paso_actual_id in ["manejo_post_cita", "despedida", "final"]:
             if is_farewell or accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted {name}. ¡Que tenga un excelente día!"
+                response = f"Gracias a ti, {name}. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {
@@ -402,7 +402,7 @@ def chat():
                             f"{gemini_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
                         )
                     else:
-                        response = "Le comento que no tengo información específica sobre esa consulta. Un abogado podrá orientarle personalmente."
+                        response = "No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente."
                 buttons = [
                     {
                         "texto": "Sí, tengo otra pregunta",
@@ -419,7 +419,7 @@ def chat():
                         "step": paso_actual_id,
                     }
                 )
-            response = "¿Hay algo más en lo que pueda ayudarle?"
+            response = "¿Hay algo más en lo que pueda ayudarte?"
             buttons = [
                 {
                     "texto": "Sí, tengo otra pregunta",
@@ -438,6 +438,7 @@ def chat():
             )
 
         if is_question and paso_actual_id not in [
+            "saludo_inicial",
             "captura_nombre",
             "captura_correo",
             "captura_telefono",
@@ -469,7 +470,7 @@ def chat():
                         f"{gemini_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
                     )
                 else:
-                    response = "Le comento que no tengo información específica sobre esa consulta. Un abogado podrá orientarle personalmente."
+                    response = "No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente."
             buttons = [
                 {
                     "texto": "Continuar con mi caso",
@@ -488,6 +489,7 @@ def chat():
             )
 
         if is_farewell and paso_actual_id not in [
+            "saludo_inicial",
             "captura_nombre",
             "captura_correo",
             "captura_telefono",
@@ -495,9 +497,9 @@ def chat():
         ]:
             name = getattr(chat, "user_name", "")
             if hasattr(chat, "appointment_time"):
-                response = f"Entendido, {name}. Le confirmo que un abogado se pondrá en contacto con usted en la fecha acordada. Saludos cordiales."
+                response = f"Entendido, {name}. Un abogado se comunicará contigo en la fecha acordada. Saludos cordiales."
             else:
-                response = f"Entendido, {name}. Un abogado se comunicará con usted a la brevedad. Saludos cordiales."
+                response = f"Entendido, {name}. Un abogado se comunicará contigo a la brevedad. Saludos cordiales."
             limpiar_estado_chat()
             return jsonify(
                 {
@@ -522,7 +524,7 @@ def chat():
                             "step": paso_actual_id,
                         }
                     )
-                response = "¿Hay algo más en lo que pueda ayudarle?"
+                response = "¿Hay algo más en lo que pueda ayudarte?"
                 return jsonify(
                     {
                         "response": response,
@@ -576,12 +578,12 @@ def chat():
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado su caso de {category}. Le comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
 
-¿Hay algo más en lo que pueda ayudarle?"""
+¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra pregunta",
+                        "texto": "Sí, tengo otra duda",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
@@ -621,12 +623,12 @@ He analizado su caso de {category}. Le comento que, si el monto supera los 10 mi
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He revisado su caso de {category}. Un abogado se comunicará con usted en la fecha acordada.
+He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha acordada.
 
-¿Hay algo más en lo que pueda asistirle?"""
+¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra pregunta",
+                        "texto": "Sí, tengo otra duda",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
@@ -644,10 +646,10 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
             if accion_boton == "contactar_abogado":
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
-                response = f"Perfecto {name}. Un abogado se comunicará con usted a la brevedad para atender su caso de forma personalizada. ¿Hay algo más en lo que pueda asistirle?"
+                response = f"Perfecto, {name}. Un abogado se comunicará contigo a la brevedad para atender tu caso de forma personalizada. ¿Hay algo más en lo que pueda ayudarte?"
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra pregunta",
+                        "texto": "Sí, tengo otra duda",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
@@ -665,10 +667,10 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
             if accion_boton == "consulta_adicional":
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
-                response = f"Entendido {name}. He registrado su consulta adicional. Uno de nuestros abogados especializados se contactará con usted según los datos agendados y le ampliará toda la información al respecto. ¿Hay alguna otra cosa en la que pueda asistirle?"
+                response = f"Entendido, {name}. He registrado tu consulta adicional. Un abogado especializado se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte?"
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra pregunta",
+                        "texto": "Sí, tengo otra duda",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
@@ -685,7 +687,7 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
 
             if accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted {name}. Ha sido un placer atenderle. Un abogado se comunicará con usted en la fecha acordada. ¡Que tenga un excelente día!"
+                response = f"Gracias a ti, {name}. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {
@@ -696,156 +698,200 @@ He revisado su caso de {category}. Un abogado se comunicará con usted en la fec
                     }
                 )
 
-        if paso_actual_id in [
-            "saludo_inicial",
-            "captura_nombre",
-            "descripcion_caso",
-            "captura_correo",
-            "captura_telefono",
-        ]:
-            if paso_actual_id == "saludo_inicial":
-                valid, result = validar_respuesta(paso_actual, message)
-                if valid:
-                    chat.user_name = result
-                    chat.paso_actual = "identificacion_rol"
-                    paso_rol = obtener_paso("identificacion_rol")
-                    response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
-                    return jsonify(
-                        {
-                            "response": response,
-                            "end_call": False,
-                            "buttons": paso_rol.get("botones"),
-                            "step": "identificacion_rol",
-                        }
-                    )
-                else:
-                    return jsonify(
-                        {
-                            "response": result,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": paso_actual_id,
-                        }
-                    )
+        if paso_actual_id == "saludo_inicial":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.user_name = result
+                chat.paso_actual = "captura_nombre"
+                paso_siguiente = obtener_paso("captura_nombre")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_siguiente, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "captura_nombre",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
 
-            if paso_actual_id == "captura_nombre":
-                valid, result = validar_respuesta(paso_actual, message)
-                if valid:
-                    chat.user_name = result
-                    chat.paso_actual = "identificacion_rol"
-                    paso_rol = obtener_paso("identificacion_rol")
-                    response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
-                    return jsonify(
-                        {
-                            "response": response,
-                            "end_call": False,
-                            "buttons": paso_rol.get("botones"),
-                            "step": "identificacion_rol",
-                        }
-                    )
-                else:
-                    return jsonify(
-                        {
-                            "response": result,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": paso_actual_id,
-                        }
-                    )
+        if paso_actual_id == "captura_nombre":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.user_name = result
+                chat.paso_actual = "identificacion_rol"
+                paso_rol = obtener_paso("identificacion_rol")
+                response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_rol.get("botones"),
+                        "step": "identificacion_rol",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
 
-            if paso_actual_id == "descripcion_caso":
-                valid, result = validar_respuesta(paso_actual, message)
-                if valid:
-                    chat.case_description = result
-                    chat.paso_actual = "captura_correo"
-                    paso_correo = obtener_paso("captura_correo")
-                    datos = obtener_estado_chat()
-                    response = formatear_mensaje(paso_correo, datos)
-                    return jsonify(
-                        {
-                            "response": response,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": "captura_correo",
-                        }
-                    )
-                else:
-                    return jsonify(
-                        {
-                            "response": result,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": paso_actual_id,
-                        }
-                    )
+        if paso_actual_id == "descripcion_caso":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.case_description = result
+                chat.paso_actual = "captura_correo"
+                paso_correo = obtener_paso("captura_correo")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_correo, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "captura_correo",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
 
-            if paso_actual_id == "captura_correo":
-                valid, result = validar_respuesta(paso_actual, message)
-                if valid:
-                    chat.user_email = result
-                    chat.paso_actual = "captura_telefono"
-                    paso_tel = obtener_paso("captura_telefono")
-                    datos = obtener_estado_chat()
-                    response = formatear_mensaje(paso_tel, datos)
-                    return jsonify(
-                        {
-                            "response": response,
-                            "end_call": False,
-                            "buttons": paso_tel.get("botones"),
-                            "step": "captura_telefono",
-                        }
-                    )
-                else:
-                    return jsonify(
-                        {
-                            "response": result,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": paso_actual_id,
-                        }
-                    )
+        if paso_actual_id == "captura_correo":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.user_email = result
+                chat.paso_actual = "captura_telefono"
+                paso_tel = obtener_paso("captura_telefono")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_tel, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_tel.get("botones"),
+                        "step": "captura_telefono",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
 
-            if paso_actual_id == "captura_telefono":
-                valid, result = validar_respuesta(paso_actual, message)
-                if valid:
-                    chat.user_phone = result
-                    chat.paso_actual = "confirmacion_cita"
-                    datos = obtener_estado_chat()
-                    response = f"Perfecto {datos['nombre']}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
-                    buttons = [
-                        {
-                            "texto": "Sí, confirmo",
-                            "valor": "confirmar",
-                            "descripcion": "",
-                        },
-                        {
-                            "texto": "No, otro horario",
-                            "valor": "rechazar",
-                            "descripcion": "",
-                        },
-                    ]
-                    return jsonify(
-                        {
-                            "response": response,
-                            "end_call": False,
-                            "buttons": buttons,
-                            "step": "captura_telefono",
-                        }
-                    )
-                else:
-                    return jsonify(
-                        {
-                            "response": result,
-                            "end_call": False,
-                            "buttons": None,
-                            "step": paso_actual_id,
-                        }
-                    )
+        if paso_actual_id == "captura_telefono":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.user_phone = result
+                chat.paso_actual = "confirmacion_cita"
+                datos = obtener_estado_chat()
+                response = f"Perfecto, {datos['nombre']}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
+                buttons = [
+                    {
+                        "texto": "Sí, me viene bien",
+                        "valor": "confirmar",
+                        "descripcion": "",
+                    },
+                    {
+                        "texto": "No, busco otro horario",
+                        "valor": "rechazar",
+                        "descripcion": "",
+                    },
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "captura_telefono",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
 
-        response = "¿Hay algo más en lo que pueda ayudarle?"
+        if paso_actual_id == "confirmacion_cita":
+            if accion_boton == "confirmar" or any(
+                w in message_lower for w in ["sí", "si", "ok", "confirmo", "de acuerdo"]
+            ):
+                chat.appointment_time = "Lunes 29 de Septiembre - 10:30 am"
+                chat.paso_actual = "manejo_post_cita"
+                name = getattr(chat, "user_name", "")
+                email = getattr(chat, "user_email", "")
+                phone = getattr(chat, "user_phone", "")
+                category = getattr(chat, "case_category", "")
+                response = f"""📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.
+📧 Correo de confirmación: {email}
+📱 Teléfono de contacto: {phone}
+
+He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+            if accion_boton == "rechazar" or any(
+                w in message_lower
+                for w in ["no", "no me viene", "otro horario", "otra hora"]
+            ):
+                chat.paso_actual = "rechazo_horario"
+                paso_rechazo = obtener_paso("rechazo_horario")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_rechazo, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_rechazo.get("botones"),
+                        "step": "rechazo_horario",
+                    }
+                )
+
+        response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
             {
-                "texto": "Sí, tengo otra pregunta",
+                "texto": "Sí, tengo otra duda",
                 "valor": "consulta_adicional",
                 "descripcion": "",
             },
