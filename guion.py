@@ -10,7 +10,7 @@ PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "identificacion_rol",
-        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Después de la señal, por favor pronuncia claramente tu nombre y apellido.",
+        "mensaje": "¡Bienvenido a TusAbogados.com! Buffet de abogados, donde garantizamos que no hay cobros de comisiones hasta que ganemos el caso. Soy Claudia García, agente especialista IA, y le ayudaremos a resolver de la mejor manera su caso legal. Para personalizar su atención, por favor dígame sus nombres y apellidos. Después de la señal, por favor pronuncia claramente tu nombre y apellido.",
         "validar": "nombre",
         "botones": None,
     },
