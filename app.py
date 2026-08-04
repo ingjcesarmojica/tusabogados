@@ -702,35 +702,10 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
                 chat.user_name = result
-                chat.paso_actual = "captura_nombre"
-                paso_siguiente = obtener_paso("captura_nombre")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_siguiente, datos)
-                return jsonify(
-                    {
-                        "response": response,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": "captura_nombre",
-                    }
-                )
-            else:
-                return jsonify(
-                    {
-                        "response": result,
-                        "end_call": False,
-                        "buttons": None,
-                        "step": paso_actual_id,
-                    }
-                )
-
-        if paso_actual_id == "captura_nombre":
-            valid, result = validar_respuesta(paso_actual, message)
-            if valid:
-                chat.user_name = result
                 chat.paso_actual = "identificacion_rol"
                 paso_rol = obtener_paso("identificacion_rol")
-                response = f"Mucho gusto, {result}. {paso_rol['mensaje']}"
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_rol, datos)
                 return jsonify(
                     {
                         "response": response,

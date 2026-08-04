@@ -9,34 +9,15 @@ Flujo conversacional estructurado para chat y llamadas.
 PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
-        "siguiente": "captura_nombre",
-        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Por favor, dime tu nombre.",
-        "validar": None,
-        "botones": None,
-    },
-    "captura_nombre": {
-        "id": "captura_nombre",
         "siguiente": "identificacion_rol",
-        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso.",
+        "mensaje": "Bienvenido a TusAbogados.com. Para poder atenderte personalmente, ¿con quién tengo el gusto de hablar? Por favor, dime tu nombre.",
         "validar": "nombre",
-        "botones": [
-            {
-                "texto": "Víctima",
-                "valor": "victima",
-                "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrió algún daño.",
-            },
-            {
-                "texto": "Demandante",
-                "valor": "demandante",
-                "descripcion": "Si quiero iniciar una demanda por divorcio, herencia, contrato, o mis derechos laborales.",
-            },
-        ],
-        "campo": "user_name",
+        "botones": None,
     },
     "identificacion_rol": {
         "id": "identificacion_rol",
-        "siguiente": "identificacion_rol_opcion",
-        "mensaje": "¿Te consideras víctima o demandante en esta situación?",
+        "siguiente": "categorizacion_caso",
+        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso.",
         "validar": None,
         "botones": [
             {
@@ -52,17 +33,10 @@ PASOS = {
         ],
         "campo": "user_role",
     },
-    "identificacion_rol_opcion": {
-        "id": "identificacion_rol_opcion",
-        "siguiente": "categorizacion_caso",
-        "mensaje": "Entendido, {nombre}, como {rol}. Ahora necesito saber el tipo de caso que manejas.",
-        "validar": None,
-        "botones": None,
-    },
     "categorizacion_caso": {
         "id": "categorizacion_caso",
-        "siguiente": "categorizacion_caso_opcion",
-        "mensaje": "¿En qué categoría crees que está tu caso?",
+        "siguiente": "descripcion_caso",
+        "mensaje": "Entendido, {nombre}, como {rol}. Ahora, ¿en qué categoría crees que está tu caso?",
         "validar": None,
         "botones": [
             {
@@ -87,13 +61,6 @@ PASOS = {
             },
         ],
         "campo": "case_category",
-    },
-    "categorizacion_caso_opcion": {
-        "id": "categorizacion_caso_opcion",
-        "siguiente": "descripcion_caso",
-        "mensaje": "Categoría {categoria} registrada. Ahora, descríbame brevemente su caso para entender mejor tu situación.",
-        "validar": None,
-        "botones": None,
     },
     "descripcion_caso": {
         "id": "descripcion_caso",
