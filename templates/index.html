@@ -136,6 +136,50 @@
             100% { transform: scale(1.2); opacity: 0; }
         }
         
+        .phone-waves {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .phone-waves.active {
+            display: block;
+        }
+        
+        .phone-wave {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #25d366;
+            border-radius: 50%;
+            animation: phoneWaveAnim 1.5s ease-out infinite;
+        }
+        
+        .phone-wave:nth-child(2) { animation-delay: 0.5s; }
+        .phone-wave:nth-child(3) { animation-delay: 1s; }
+        
+        @keyframes phoneWaveAnim {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        
+        .phone-waves.ringing .phone-wave {
+            border-color: #25d366;
+        }
+        
+        .phone-waves.connected .phone-wave {
+            border-color: #ef4444;
+            animation: none;
+            display: none;
+        }
+        
         .profile-name {
             font-size: 18px;
             font-weight: 700;
@@ -621,11 +665,18 @@
                 <div class="call-messages" id="callMessages"></div>
                 
                 <div class="call-controls">
-                    <button class="action-button whatsapp-button" id="startCallBtn" onclick="startCall()">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                        </svg>
-                    </button>
+                    <div style="position:relative;display:inline-flex;">
+                        <div class="phone-waves" id="phoneWaves">
+                            <div class="phone-wave"></div>
+                            <div class="phone-wave"></div>
+                            <div class="phone-wave"></div>
+                        </div>
+                        <button class="action-button whatsapp-button" id="startCallBtn" onclick="startCall()">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                                <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                            </svg>
+                        </button>
+                    </div>
                     
                     <button class="action-button end-call-button" id="endCallBtn" onclick="endCall()">
                         <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
@@ -676,6 +727,7 @@
         function playRingtone() {
             stopRingtone();
             ringtoneCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let ringCount = 0;
             
             function playTone() {
                 if (!ringtoneCtx || !isCalling) return;
@@ -686,11 +738,17 @@
                 
                 osc1.type = 'sine';
                 osc2.type = 'sine';
-                osc1.frequency.value = 420;
+                osc1.frequency.value = 440;
                 osc2.frequency.value = 480;
                 
-                gainNode.gain.setValueAtTime(0.15, ringtoneCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, ringtoneCtx.currentTime + 0.4);
+                gainNode.gain.setValueAtTime(0, ringtoneCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.2, ringtoneCtx.currentTime + 0.05);
+                gainNode.gain.setValueAtTime(0.2, ringtoneCtx.currentTime + 0.3);
+                gainNode.gain.linearRampToValueAtTime(0, ringtoneCtx.currentTime + 0.35);
+                gainNode.gain.setValueAtTime(0, ringtoneCtx.currentTime + 0.4);
+                gainNode.gain.linearRampToValueAtTime(0.2, ringtoneCtx.currentTime + 0.45);
+                gainNode.gain.setValueAtTime(0.2, ringtoneCtx.currentTime + 0.75);
+                gainNode.gain.linearRampToValueAtTime(0, ringtoneCtx.currentTime + 0.8);
                 
                 osc1.connect(gainNode);
                 osc2.connect(gainNode);
@@ -698,12 +756,18 @@
                 
                 osc1.start(ringtoneCtx.currentTime);
                 osc2.start(ringtoneCtx.currentTime);
-                osc1.stop(ringtoneCtx.currentTime + 0.4);
-                osc2.stop(ringtoneCtx.currentTime + 0.4);
+                osc1.stop(ringtoneCtx.currentTime + 0.8);
+                osc2.stop(ringtoneCtx.currentTime + 0.8);
+                
+                ringCount++;
+                if (ringCount >= 4) {
+                    clearInterval(ringtoneInterval);
+                    ringtoneInterval = null;
+                }
             }
             
             playTone();
-            ringtoneInterval = setInterval(playTone, 1200);
+            ringtoneInterval = setInterval(playTone, 1000);
         }
         
         function stopRingtone() {
@@ -929,10 +993,23 @@
             callView.classList.add('calling');
             document.getElementById('buttonLabel').textContent = 'Finalizar';
             document.getElementById('statusIndicator').textContent = 'Conectando...';
+            document.getElementById('startCallBtn').style.background = '#25d366';
+            
+            const phoneWaves = document.getElementById('phoneWaves');
+            phoneWaves.classList.add('active', 'ringing');
             
             clearCallMessages();
             playRingtone();
-            sendCallMessage('hola');
+            
+            setTimeout(() => {
+                if (isCalling) {
+                    phoneWaves.classList.remove('ringing');
+                    phoneWaves.classList.add('connected');
+                    document.getElementById('startCallBtn').style.background = '#ef4444';
+                    document.getElementById('statusIndicator').textContent = 'Claudia contesta...';
+                    sendCallMessage('hola');
+                }
+            }, 3600);
         }
         
         function endCall() {
@@ -951,10 +1028,14 @@
             const callView = document.getElementById('callView');
             callView.classList.remove('calling');
             document.getElementById('buttonLabel').textContent = 'Llamar';
+            document.getElementById('startCallBtn').style.background = '#25d366';
             document.getElementById('pulseRings').classList.remove('active');
             
+            const phoneWaves = document.getElementById('phoneWaves');
+            phoneWaves.classList.remove('active', 'ringing', 'connected');
+            
             if (currentMode === 'call') {
-                document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
+                document.getElementById('statusIndicator').textContent = 'Llamada finalizada';
                 setTimeout(() => {
                     if (!isCalling && currentMode === 'call') {
                         document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
