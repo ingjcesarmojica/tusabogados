@@ -511,6 +511,51 @@ def chat():
             )
 
         if accion_boton:
+            if accion_boton == "aceptar_cita":
+                chat.paso_actual = "propuesta_horario"
+                response = f"Perfecto, {getattr(chat, 'user_name', 'usuario')}. Te propongo el próximo Lunes 29 de Septiembre a las 10:30 de la mañana. ¿Te parece bien esa fecha y hora?"
+                buttons = [
+                    {
+                        "texto": "Sí, confirmo",
+                        "valor": "confirmar",
+                        "descripcion": "",
+                    },
+                    {
+                        "texto": "No, no me viene bien",
+                        "valor": "rechazar",
+                        "descripcion": "",
+                    },
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "propuesta_horario",
+                    }
+                )
+
+            if accion_boton == "rechazar_cita":
+                chat.paso_actual = "manejo_post_cita"
+                name = getattr(chat, "user_name", "")
+                response = f"Entendido, {name}. Uno de nuestros abogados especializados se contactará con usted según los datos agendados y le ampliará toda la información al respecto. ¿Hay alguna otra cosa en la que pueda asistirle?"
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
             if accion_boton == "continuar":
                 paso_actual = obtener_paso(paso_actual_id)
                 if paso_actual:
@@ -782,16 +827,16 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 chat.user_phone = result
                 chat.paso_actual = "confirmacion_cita"
                 datos = obtener_estado_chat()
-                response = f"Perfecto, {datos['nombre']}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?"
+                response = f"Perfecto, {datos['nombre']}. Ya tengo la información necesaria para colaborarte en tu proceso. ¿Te parece bien si agendo una cita con uno de nuestros abogados especializados quien te ayudará en tu caso?"
                 buttons = [
                     {
-                        "texto": "Sí, me viene bien",
-                        "valor": "confirmar",
+                        "texto": "Sí, agendar cita",
+                        "valor": "aceptar_cita",
                         "descripcion": "",
                     },
                     {
-                        "texto": "No, busco otro horario",
-                        "valor": "rechazar",
+                        "texto": "No, por ahora no",
+                        "valor": "rechazar_cita",
                         "descripcion": "",
                     },
                 ]
@@ -800,7 +845,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "response": response,
                         "end_call": False,
                         "buttons": buttons,
-                        "step": "captura_telefono",
+                        "step": "confirmacion_cita",
                     }
                 )
             else:
