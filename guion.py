@@ -108,7 +108,7 @@ PASOS = {
     "confirmacion_cita": {
         "id": "confirmacion_cita",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "¡Cita confirmada, {nombre}!",
+        "mensaje": "¡Su cita ha sido confirmada!",
         "validar": None,
         "botones": None,
     },
