@@ -151,7 +151,7 @@ PASOS = {
     "despedida": {
         "id": "despedida",
         "siguiente": None,
-        "mensaje": "Gracias a ti, {nombre}. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!",
+        "mensaje": "Gracias a usted. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!",
         "validar": None,
         "botones": None,
         "fin": True,
