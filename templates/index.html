@@ -703,6 +703,7 @@
         let ringtoneInterval = null;
         let ringtoneCtx = null;
         let listeningTimeout = null;
+        let callSequenceId = 0;
         
         const CHAT_API_URL = '/api/chat';
         const SPEAK_API_URL = '/api/speak';
@@ -1022,12 +1023,7 @@
         
         function endCall() {
             isCalling = false;
-            isListening = false;
-            isSpeaking = false;
-            
-            stopCurrentAudio();
-            stopRecognition();
-            stopListeningTimeout();
+            killAllCallAudio();
             stopRingtone();
             
             if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -1089,15 +1085,12 @@
         
         function sendCallMessage(message, action = null) {
             if (!isCalling) return;
-            stopCurrentAudio();
-            stopRecognition();
-            stopListeningTimeout();
+            killAllCallAudio();
             
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
-            
             addCallMessage(message, 'user');
             
-            const body = { message: message };
+            var body = { message: message };
             if (action) body.action = action;
             
             fetch(CHAT_API_URL, {
@@ -1105,34 +1098,30 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
                 if (!isCalling) return;
                 if (data.error) {
                     showError("Error procesando tu mensaje.");
-                    document.getElementById('statusIndicator').textContent = "Escuchando...";
-                    startListening();
+                    callPromptRetry();
                     return;
                 }
                 addCallMessage(data.response, 'bot', data.buttons);
-                speakCallText(data.response, data.end_call);
+                var hasButtons = data.buttons && data.buttons.length > 0;
+                callSpeak(data.response, data.end_call, hasButtons);
             })
-            .catch(error => {
+            .catch(function() {
                 if (!isCalling) return;
                 showError("Error de conexión.");
-                document.getElementById('statusIndicator').textContent = "Escuchando...";
-                startListening();
+                callPromptRetry();
             });
         }
         
         function sendCallButtonAction(action, texto) {
             if (!isCalling) return;
-            stopRecognition();
-            stopCurrentAudio();
-            stopListeningTimeout();
+            killAllCallAudio();
             
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
-            
             addCallMessage(texto, 'user');
             
             fetch(CHAT_API_URL, {
@@ -1140,31 +1129,48 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: texto, action: action })
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
                 if (!isCalling) return;
                 if (data.error) {
                     showError("Error procesando tu mensaje.");
-                    document.getElementById('statusIndicator').textContent = "Escuchando...";
-                    startListening();
+                    callPromptRetry();
                     return;
                 }
                 addCallMessage(data.response, 'bot', data.buttons);
-                speakCallText(data.response, data.end_call);
+                var hasButtons = data.buttons && data.buttons.length > 0;
+                callSpeak(data.response, data.end_call, hasButtons);
             })
-            .catch(error => {
+            .catch(function() {
                 if (!isCalling) return;
                 showError("Error de conexión.");
-                document.getElementById('statusIndicator').textContent = "Escuchando...";
-                startListening();
+                callPromptRetry();
             });
         }
         
-        function speakCallText(text, endCallAfter) {
-            if (!isCalling) return;
-            stopCurrentAudio();
-            stopRecognition();
+        function killAllCallAudio() {
+            callSequenceId++;
+            stopListeningTimeout();
+            isListening = false;
+            isSpeaking = false;
             
+            if (recognition) {
+                try { recognition.stop(); } catch(e) {}
+                recognition = null;
+            }
+            if (currentAudio) {
+                currentAudio.onended = null;
+                currentAudio.onerror = null;
+                try { currentAudio.pause(); } catch(e) {}
+                currentAudio = null;
+            }
+        }
+        
+        function callSpeak(text, endCallAfter, hasButtons) {
+            if (!isCalling) return;
+            killAllCallAudio();
+            
+            var seqId = callSequenceId;
             isSpeaking = true;
             stopRingtone();
             document.getElementById('statusIndicator').textContent = "Claudia habla...";
@@ -1174,48 +1180,75 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: text })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (!isCalling) return;
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (!isCalling || seqId !== callSequenceId) return;
                 if (data.audioUrl) {
                     currentAudio = new Audio(data.audioUrl);
                     currentAudio.onended = function() {
-                        isSpeaking = false;
+                        if (seqId !== callSequenceId) return;
                         currentAudio = null;
+                        isSpeaking = false;
                         if (!isCalling) return;
-                        if (endCallAfter) { endCall(); }
-                        else { playBeep(); }
+                        if (endCallAfter) { endCall(); return; }
+                        if (hasButtons) {
+                            document.getElementById('statusIndicator').textContent = "Seleccione una opción";
+                        } else {
+                            callBeepThenListen();
+                        }
                     };
                     currentAudio.onerror = function() {
-                        isSpeaking = false;
+                        if (seqId !== callSequenceId) return;
                         currentAudio = null;
+                        isSpeaking = false;
                         if (!isCalling) return;
-                        if (endCallAfter) endCall();
-                        else { playBeep(); }
+                        if (endCallAfter) { endCall(); return; }
+                        if (hasButtons) {
+                            document.getElementById('statusIndicator').textContent = "Seleccione una opción";
+                        } else {
+                            callBeepThenListen();
+                        }
                     };
                     currentAudio.play().catch(function() {
+                        if (seqId !== callSequenceId) return;
+                        currentAudio = null;
                         isSpeaking = false;
                         if (!isCalling) return;
-                        if (endCallAfter) endCall();
-                        else { playBeep(); }
+                        if (endCallAfter) { endCall(); return; }
+                        if (hasButtons) {
+                            document.getElementById('statusIndicator').textContent = "Seleccione una opción";
+                        } else {
+                            callBeepThenListen();
+                        }
                     });
                 } else {
                     isSpeaking = false;
                     if (!isCalling) return;
-                    if (endCallAfter) endCall();
-                    else { playBeep(); }
+                    if (endCallAfter) { endCall(); return; }
+                    if (hasButtons) {
+                        document.getElementById('statusIndicator').textContent = "Seleccione una opción";
+                    } else {
+                        callBeepThenListen();
+                    }
                 }
             })
             .catch(function() {
+                if (seqId !== callSequenceId) return;
                 isSpeaking = false;
                 if (!isCalling) return;
-                if (endCallAfter) endCall();
-                else { playBeep(); }
+                if (endCallAfter) { endCall(); return; }
+                if (hasButtons) {
+                    document.getElementById('statusIndicator').textContent = "Seleccione una opción";
+                } else {
+                    callBeepThenListen();
+                }
             });
         }
         
-        function playBeep() {
+        function callBeepThenListen() {
             if (!isCalling) return;
+            var seqId = callSequenceId;
+            
             var beepCtx = new (window.AudioContext || window.webkitAudioContext)();
             var osc = beepCtx.createOscillator();
             var gain = beepCtx.createGain();
@@ -1229,42 +1262,21 @@
             osc.stop(beepCtx.currentTime + 0.3);
             osc.onended = function() {
                 beepCtx.close().catch(function() {});
-                if (isCalling && !isSpeaking) {
-                    document.getElementById('statusIndicator').textContent = "Escuchando...";
-                    startListening();
-                    startListeningTimeout();
-                }
+                if (!isCalling || seqId !== callSequenceId) return;
+                document.getElementById('statusIndicator').textContent = "Escuchando...";
+                callStartListening();
             };
         }
         
-        function startListeningTimeout() {
-            stopListeningTimeout();
-            listeningTimeout = setTimeout(function() {
-                if (!isCalling || isSpeaking) return;
-                stopRecognition();
-                document.getElementById('statusIndicator').textContent = "No te escuché...";
-                speakCallText("No te escuché bien. Por favor, después de la señal pronuncia claramente el dato solicitado.", false);
-            }, 5000);
-        }
-        
-        function stopListeningTimeout() {
-            if (listeningTimeout) {
-                clearTimeout(listeningTimeout);
-                listeningTimeout = null;
-            }
-        }
-        
-        function stopRecognition() {
+        function callStartListening() {
+            if (!isCalling || isSpeaking) return;
             if (recognition) {
                 try { recognition.stop(); } catch(e) {}
                 recognition = null;
             }
             isListening = false;
-        }
-        
-        function startListening() {
-            if (!isCalling || isSpeaking || isListening) return;
-            stopRecognition();
+            
+            var seqId = callSequenceId;
             
             recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.lang = 'es-MX';
@@ -1272,13 +1284,13 @@
             recognition.interimResults = false;
             
             recognition.onstart = function() {
-                if (!isCalling || isSpeaking) return;
+                if (!isCalling || seqId !== callSequenceId) return;
                 isListening = true;
                 document.getElementById('statusIndicator').textContent = "Escuchando...";
             };
             
             recognition.onresult = function(event) {
-                if (!isCalling) return;
+                if (!isCalling || seqId !== callSequenceId) return;
                 var transcript = event.results[0][0].transcript;
                 isListening = false;
                 stopListeningTimeout();
@@ -1287,36 +1299,41 @@
                 if (transcript && transcript.trim().length > 0) {
                     sendCallMessage(transcript);
                 } else {
-                    document.getElementById('statusIndicator').textContent = "Escuchando...";
-                    startListening();
-                    startListeningTimeout();
+                    callPromptRetry();
                 }
             };
             
             recognition.onerror = function(event) {
+                if (seqId !== callSequenceId) return;
                 isListening = false;
+                stopListeningTimeout();
                 if (event.error === 'no-speech') {
-                    if (isCalling && !isSpeaking) {
-                        speakCallText("Por favor, dime tu nombre para poder continuar.", false);
-                    }
+                    callPromptRetry();
                 } else if (event.error !== 'aborted') {
-                    console.error('Error reconocimiento:', event.error);
-                    if (isCalling && !isSpeaking) {
-                        setTimeout(function() { if (isCalling && !isSpeaking) startListening(); }, 2000);
-                    }
+                    setTimeout(function() {
+                        if (!isCalling || seqId !== callSequenceId) return;
+                        callStartListening();
+                    }, 2000);
                 }
             };
             
             recognition.onend = function() {
+                if (seqId !== callSequenceId) return;
                 isListening = false;
             };
             
             try {
                 recognition.start();
             } catch(e) {
-                console.error('Error micrófono:', e);
                 recognition = null;
             }
+            
+            startListeningTimeout();
+        }
+        
+        function callPromptRetry() {
+            if (!isCalling) return;
+            callSpeak("No te escuché bien. Por favor, después de la señal pronuncia claramente el dato solicitado.", false, false);
         }
         
         function showError(message) {

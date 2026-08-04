@@ -17,7 +17,7 @@ PASOS = {
     "identificacion_rol": {
         "id": "identificacion_rol",
         "siguiente": "categorizacion_caso",
-        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso.",
+        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso. Por favor, seleccione la opción que más se parezca a tu caso.",
         "validar": None,
         "botones": [
             {
@@ -36,7 +36,7 @@ PASOS = {
     "categorizacion_caso": {
         "id": "categorizacion_caso",
         "siguiente": "descripcion_caso",
-        "mensaje": "Entendido, {nombre}, como {rol}. Ahora, ¿en qué categoría crees que está tu caso?",
+        "mensaje": "Entendido, {nombre}, como {rol}. Ahora, ¿en qué categoría crees que está tu caso? Por favor, seleccione la opción que mejor se adapte a tu caso.",
         "validar": None,
         "botones": [
             {
@@ -96,7 +96,7 @@ PASOS = {
     "confirmacion_cita_opcion": {
         "id": "confirmacion_cita_opcion",
         "siguiente": "manejo_post_cita",
-        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.\n\n¿Hay algo más en lo que pueda ayudarte?",
+        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
@@ -118,7 +118,7 @@ PASOS = {
     "consulta_adicional": {
         "id": "consulta_adicional",
         "siguiente": "manejo_post_cita",
-        "mensaje": "Entendido, {nombre}. He registrado tu consulta adicional. Uno de nuestros abogados especializados se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte?",
+        "mensaje": "Entendido, {nombre}. He registrado tu consulta adicional. Uno de nuestros abogados especializados se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
@@ -140,7 +140,7 @@ PASOS = {
     "rechazo_horario": {
         "id": "rechazo_horario",
         "siguiente": "alternativa_horario",
-        "mensaje": "Entiendo perfectamente. En ese caso, ¿te gustaría que te pongamos en contacto directamente con uno de nuestros abogados? Ellos podrán atender tu caso de forma personalizada.",
+        "mensaje": "Entiendo perfectamente. En ese caso, ¿te gustaría que te pongamos en contacto directamente con uno de nuestros abogados? Ellos podrán atender tu caso de forma personalizada. Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
@@ -158,7 +158,7 @@ PASOS = {
     "alternativa_horario": {
         "id": "alternativa_horario",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "Queda registrada tu cita.\n\n📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado tu caso de {categoria}. Un abogado se comunicará contigo en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarte?",
+        "mensaje": "Queda registrada tu cita.\n\n📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado tu caso de {categoria}. Un abogado se comunicará contigo en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
