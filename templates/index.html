@@ -616,7 +616,7 @@
             </div>
         </div>
         
-        <div class="status-indicator" id="statusIndicator">Listo para hablar</div>
+        <div class="status-indicator" id="statusIndicator">Este sitio utiliza Agentes de Inteligencia Artificial</div>
     </div>
 
     <script>
@@ -643,11 +643,11 @@
             document.getElementById('callView').classList.toggle('active', mode === 'call');
             
             if (mode === 'call') {
-                document.getElementById('statusIndicator').textContent = 'Listo para hablar';
+                document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
             } else {
                 endCall();
                 stopRingtone();
-                document.getElementById('statusIndicator').textContent = 'Modo chat activo';
+                document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
             }
         }
         
@@ -931,10 +931,10 @@
             document.getElementById('pulseRings').classList.remove('active');
             
             if (currentMode === 'call') {
-                document.getElementById('statusIndicator').textContent = 'Llamada finalizada';
+                document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
                 setTimeout(() => {
                     if (!isCalling && currentMode === 'call') {
-                        document.getElementById('statusIndicator').textContent = 'Listo para hablar';
+                        document.getElementById('statusIndicator').textContent = 'Este sitio utiliza Agentes de Inteligencia Artificial';
                     }
                 }, 3000);
             }
