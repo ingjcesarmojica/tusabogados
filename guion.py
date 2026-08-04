@@ -65,7 +65,7 @@ PASOS = {
     "descripcion_caso": {
         "id": "descripcion_caso",
         "siguiente": "captura_correo",
-        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico?",
+        "mensaje": "Categoría {categoria} registrada. Ahora, descríbame brevemente su caso para entender mejor tu situación.",
         "validar": "descripcion",
         "botones": None,
         "campo": "case_description",
@@ -73,7 +73,7 @@ PASOS = {
     "captura_correo": {
         "id": "captura_correo",
         "siguiente": "captura_telefono",
-        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número?",
+        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico?",
         "validar": "correo",
         "botones": None,
         "campo": "user_email",
@@ -81,7 +81,7 @@ PASOS = {
     "captura_telefono": {
         "id": "captura_telefono",
         "siguiente": "confirmacion_cita",
-        "mensaje": "Perfecto, {nombre}. Ya tengo toda la información. Te propongo el primer horario disponible: ¿Le viene bien el Lunes 29 de Septiembre a las 10:30 de la mañana?",
+        "mensaje": "Correo registrado correctamente. Ahora necesito un número de teléfono para contactarte. ¿Cuál es tu número?",
         "validar": "telefono",
         "botones": [
             {"texto": "Sí, me viene bien", "valor": "confirmar", "descripcion": ""},
