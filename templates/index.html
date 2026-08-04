@@ -839,14 +839,22 @@
             document.getElementById('pulseRings').classList.remove('active');
         }
         
-        function speakMessage(text, btn) {
-            if (isSpeaking && currentAudio) {
-                currentAudio.pause();
+        function stopCurrentAudio() {
+            if (currentAudio) {
+                try {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                } catch(e) {}
                 currentAudio = null;
-                isSpeaking = false;
-                document.querySelectorAll('.speak-btn').forEach(b => b.classList.remove('playing'));
-                if (btn.classList.contains('playing')) return;
             }
+            isSpeaking = false;
+            document.querySelectorAll('.speak-btn').forEach(b => b.classList.remove('playing'));
+        }
+        
+        function speakMessage(text, btn) {
+            stopCurrentAudio();
+            
+            if (btn && btn.classList.contains('playing')) return;
             
             if (btn) btn.classList.add('playing');
             isSpeaking = true;
@@ -858,6 +866,8 @@
             })
             .then(response => response.json())
             .then(data => {
+                if (!isSpeaking) return;
+                
                 if (data.audioUrl) {
                     currentAudio = new Audio(data.audioUrl);
                     currentAudio.onended = function() {
@@ -870,7 +880,10 @@
                         currentAudio = null;
                         if (btn) btn.classList.remove('playing');
                     };
-                    currentAudio.play();
+                    currentAudio.play().catch(() => {
+                        isSpeaking = false;
+                        if (btn) btn.classList.remove('playing');
+                    });
                 } else {
                     isSpeaking = false;
                     if (btn) btn.classList.remove('playing');
@@ -902,16 +915,12 @@
         function endCall() {
             isCalling = false;
             isListening = false;
-            isSpeaking = false;
+            stopCurrentAudio();
             stopRingtone();
             
             if (recognition) {
                 try { recognition.stop(); } catch(e) {}
                 recognition = null;
-            }
-            
-            if (currentAudio) {
-                try { currentAudio.pause(); currentAudio = null; } catch(e) {}
             }
             
             if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -976,6 +985,8 @@
         }
         
         function speakCallText(text, endCallAfter) {
+            stopCurrentAudio();
+            
             isSpeaking = true;
             stopRingtone();
             document.getElementById('statusIndicator').textContent = "Hablando...";
@@ -988,6 +999,8 @@
             })
             .then(response => response.json())
             .then(data => {
+                if (!isSpeaking && !isCalling) return;
+                
                 if (data.audioUrl) {
                     currentAudio = new Audio(data.audioUrl);
                     currentAudio.onended = function() {
@@ -1007,7 +1020,12 @@
                         if (endCallAfter) endCall();
                         else startListening();
                     };
-                    currentAudio.play();
+                    currentAudio.play().catch(() => {
+                        isSpeaking = false;
+                        document.getElementById('pulseRings').classList.remove('active');
+                        if (endCallAfter) endCall();
+                        else startListening();
+                    });
                 } else {
                     isSpeaking = false;
                     document.getElementById('pulseRings').classList.remove('active');
