@@ -13,6 +13,9 @@ import logging
 import edge_tts
 import google.generativeai as genai
 from dotenv import load_dotenv
+from types import SimpleNamespace
+
+chat = SimpleNamespace()
 
 try:
     from rag import search_knowledge, add_pdf, list_documents, delete_document
@@ -363,8 +366,6 @@ def chat():
                     "step": "saludo_inicial",
                 }
             )
-
-        message_lower = (message or "").lower().strip()
 
         message_lower = (message or "").lower().strip()
 
