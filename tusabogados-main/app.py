@@ -366,6 +366,8 @@ def chat():
 
         message_lower = (message or "").lower().strip()
 
+        message_lower = (message or "").lower().strip()
+
         is_greeting = any(
             word in message_lower
             for word in [
@@ -496,7 +498,7 @@ def chat():
                         response = "No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente."
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra pregunta",
+                        "texto": "Sí, tengo otra duda",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
@@ -530,12 +532,12 @@ def chat():
 
         if is_question and paso_actual_id not in [
             "saludo_inicial",
-            "captura_nombre",
-            "captura_correo",
-            "captura_telefono",
-            "descripcion_caso",
             "identificacion_rol",
             "categorizacion_caso",
+            "verificacion_pruebas",
+            "descripcion_caso",
+            "captura_correo",
+            "captura_telefono",
             "confirmacion_cita",
             "propuesta_horario",
             "rechazo_horario",
@@ -584,14 +586,14 @@ def chat():
 
         if is_farewell and paso_actual_id not in [
             "saludo_inicial",
-            "captura_nombre",
-            "captura_correo",
-            "captura_telefono",
-            "descripcion_caso",
             "identificacion_rol",
             "categorizacion_caso",
+            "verificacion_pruebas",
+            "descripcion_caso",
+            "captura_correo",
+            "captura_telefono",
             "confirmacion_cita",
-            "propuesta_horario",
+            "confirmacion_cita_opcion",
             "rechazo_horario",
         ]:
             name = getattr(chat, "user_name", "")
@@ -662,7 +664,7 @@ def chat():
                     response = formatear_mensaje(paso_actual, datos)
                     return jsonify(
                         {
-"response": "¡Su cita ha sido confirmada!\\n\\n📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\\n📧 Confirmación enviada a: {correo}\\n📱 Teléfono de contacto: {telefono}\\n\\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honorario del 10% en caso de éxito.\\n\\n¿Hay algo más en lo que pueda ayudarte?,"
+                            "response": response,
                             "end_call": False,
                             "buttons": paso_actual.get("botones"),
                             "step": paso_actual_id,
