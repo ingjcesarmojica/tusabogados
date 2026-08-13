@@ -1,6 +1,6 @@
 # Flujo Conversacional - Agente IA TusAbogados.com
 
-**Agente:** Claudia García - Abogada Laboral
+**Agente:** Claudia García - Agente Especializada en Derecho
 **Versión:** 2.0 (Modo Chat)
 **Fecha:** Agosto 2026
 
