@@ -1067,6 +1067,45 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 }
             )
 
+        if paso_actual_id == "pregunta_consultar":
+            pregunta = message or ""
+            context = f"Usuario adicional: {pregunta}"
+            rag_context = ""
+            if RAG_AVAILABLE:
+                try:
+                    docs = search_knowledge(pregunta, n_results=3)
+                    if docs:
+                        rag_parts = []
+                        for d in docs:
+                            rag_parts.append(d["text"])
+                        rag_context = "\n---\n".join(rag_parts)
+                except Exception as e:
+                    app.logger.error(f"RAG error: {e}")
+
+            if rag_context:
+                context += f"\n\nInformación de la base de conocimiento:\n{rag_context}"
+            llm_resp = get_llm_response(pregunta, context=context)
+            if llm_resp:
+                response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda ayudarte?"
+            else:
+                response = f"No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente.\n\n¿Hay algo más en lo que pueda ayudarte?"
+            buttons = [
+                {
+                    "texto": "Sí, tengo otra duda",
+                    "valor": "consulta_adicional",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": "pregunta_consultar",
+                }
+            )
+
         response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
             {
