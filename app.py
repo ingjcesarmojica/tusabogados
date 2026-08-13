@@ -948,7 +948,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 chat.user_phone = result
                 chat.paso_actual = "confirmacion_cita"
                 datos = obtener_estado_chat()
-                response = f"Perfecto, {datos['nombre']}. Ya tengo la información necesaria para colaborarte en tu proceso. ¿Te parece bien si agendo una cita con uno de nuestros abogados especializados quien te ayudará en tu caso?"
+                response = f"Perfecto, ya tengo toda la información necesaria para orientarte en tu proceso. ¿Te parece bien si agendamos una cita con uno de nuestros abogados especializados para que te ayude con tu caso?"
                 buttons = [
                     {
                         "texto": "Sí, tengo otra duda",
