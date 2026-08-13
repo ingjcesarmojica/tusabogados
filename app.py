@@ -615,6 +615,10 @@ def chat():
             "confirmacion_cita",
             "propuesta_horario",
             "rechazo_horario",
+            "manejo_post_cita",
+            "confirmacion_cita_opcion",
+            "pregunta_consultar",
+            "consulta_adicional",
         ]:
             context = (
                 f"Usuario: {getattr(chat, 'user_name', 'usuario')}. Pregunta libre."
