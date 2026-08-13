@@ -137,7 +137,7 @@ PASOS = {
     "consulta_adicional": {
         "id": "consulta_adicional",
         "siguiente": "manejo_post_cita",
-        "mensaje": "Entendido, {nombre}. He registrado tu consulta adicional. Uno de nuestros abogados especializados se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte? Por favor, seleccione una de las opciones.",
+        "mensaje": "Listo, he registrado tu consulta adicional. Un abogado especializado se pondrá en contacto contigo según la cita agendada y te brindará toda la información que necesitas. ¿Hay algo más en lo que pueda ayudarte?",
         "validar": None,
         "botones": [
             {
