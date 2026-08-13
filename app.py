@@ -577,6 +577,7 @@ def chat():
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
+                    chat.paso_actual = "pregunta_consultar"
                     save_conversation(response, "manejo_post_cita")
                     return jsonify(
                         {
@@ -1151,6 +1152,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
+                    chat.paso_actual = "pregunta_consultar"
                     return jsonify(
                         {
                             "response": response,
@@ -1165,6 +1167,8 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
             if paso and paso.get("mensaje"):
                 response = paso.get("mensaje", "")
                 buttons = paso.get("botones")
+                chat.paso_actual = "pregunta_consultar"
+                buttons = paso.get("botones")
                 return jsonify(
                     {
                         "response": response,
@@ -1175,12 +1179,12 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 )
 
         if paso_actual_id == "pregunta_consultar":
-            pregunta = message or ""
-            if not pregunta and accion_boton == "consulta_adicional":
+            if accion_boton == "consulta_adicional":
                 paso = obtener_paso("consulta_adicional")
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
+                    chat.paso_actual = "pregunta_consultar"
                     save_conversation(response, "pregunta_consultar")
                     return jsonify(
                         {
@@ -1190,6 +1194,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                             "step": "pregunta_consultar",
                         }
                     )
+            pregunta = message or ""
             context = f"Usuario adicional: {pregunta}"
             llm_context = (
                 INSTRUCCIONES_PREGUNTAS_ADICIONALES
