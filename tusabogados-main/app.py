@@ -41,7 +41,7 @@ else:
     )
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "xiaomi/mimo-v2.5")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
 OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
 
 TTS_VOICE = os.environ.get("TTS_VOICE", "es-US-PalomaNeural")
@@ -662,7 +662,7 @@ def chat():
                     response = formatear_mensaje(paso_actual, datos)
                     return jsonify(
                         {
-                            "response": response,
+"response": "¡Su cita ha sido confirmada!\\n\\n📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\\n📧 Confirmación enviada a: {correo}\\n📱 Teléfono de contacto: {telefono}\\n\\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honorario del 10% en caso de éxito.\\n\\n¿Hay algo más en lo que pueda ayudarte?,"
                             "end_call": False,
                             "buttons": paso_actual.get("botones"),
                             "step": paso_actual_id,
@@ -951,13 +951,13 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 response = f"Perfecto, {datos['nombre']}. Ya tengo la información necesaria para colaborarte en tu proceso. ¿Te parece bien si agendo una cita con uno de nuestros abogados especializados quien te ayudará en tu caso?"
                 buttons = [
                     {
-                        "texto": "Sí, agendar cita",
-                        "valor": "aceptar_cita",
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
                         "descripcion": "",
                     },
                     {
-                        "texto": "No, por ahora no",
-                        "valor": "rechazar_cita",
+                        "texto": "No, gracias",
+                        "valor": "despedida",
                         "descripcion": "",
                     },
                 ]
@@ -966,7 +966,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "response": response,
                         "end_call": False,
                         "buttons": buttons,
-                        "step": "confirmacion_cita",
+                        "step": "confirmacion_cita_opcion",
                     }
                 )
             else:
