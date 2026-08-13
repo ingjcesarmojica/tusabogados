@@ -1032,6 +1032,41 @@ He analizado tu caso de {category}. Te comento que, si el monto supera los 10 mi
                     }
                 )
 
+        if paso_actual_id == "confirmacion_cita_opcion":
+            chat.appointment_time = (
+                chat.appointment_time or "Lunes 29 de Septiembre - 10:30 am"
+            )
+            name = getattr(chat, "user_name", "")
+            email = getattr(chat, "user_email", "")
+            phone = getattr(chat, "user_phone", "")
+            category = getattr(chat, "case_category", "")
+            appointment_date = getattr(
+                chat, "appointment_time", "Lunes 29 de septiembre - 10:30 a.m."
+            )
+            response = f"""📅 Fecha: {appointment_date}
+📧 Confirmación enviada a: {email}
+📱 Teléfono de contacto: {phone}
+
+He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+            buttons = [
+                {
+                    "texto": "Sí, tengo otra duda",
+                    "valor": "consulta_adicional",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": "manejo_post_cita",
+                }
+            )
+
         response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
             {
