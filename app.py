@@ -379,6 +379,7 @@ def chat():
             chat.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
             response = paso["mensaje"]
+            save_conversation(response, "saludo_inicial")
             return jsonify(
                 {
                     "response": response,
@@ -876,6 +877,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 name = getattr(chat, "user_name", "")
                 response = f"Gracias a ti por confiar en nosotros. Ha sido un gusto atenderte. Un abogado se pondrá en contacto contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
+                save_conversation(response, "despedida")
                 return jsonify(
                     {
                         "response": response,
@@ -1168,6 +1170,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     "step": "pregunta_consultar",
                 }
             )
+        save_conversation(response, paso_actual_id)
 
         response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
