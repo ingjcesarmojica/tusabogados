@@ -1087,6 +1087,21 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 }
             )
 
+        if paso_actual_id == "manejo_post_cita":
+            if accion_boton == "consulta_adicional":
+                paso = obtener_paso("consulta_adicional")
+                if paso and paso.get("mensaje"):
+                    response = paso.get("mensaje", "")
+                    buttons = paso.get("botones")
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "pregunta_consultar",
+                        }
+                    )
+
         if paso_actual_id == "consulta_adicional":
             paso = obtener_paso("consulta_adicional")
             if paso and paso.get("mensaje"):
