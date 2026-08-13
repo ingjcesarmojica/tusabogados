@@ -720,10 +720,7 @@ def chat():
                 paso_desc = obtener_paso("descripcion_caso")
                 datos = obtener_estado_chat()
                 if accion_boton == "si_pruebas":
-                    response = (
-                        formatear_mensaje(paso_desc, datos)
-                        + " Por favor, adjunte los archivos que desee enviar."
-                    )
+                    response = "Excelente. Cuéntame brevemente qué sucedió en tu caso — con eso podré entender mejor tu situación. También puedes adjuntar los archivos que consideres relevantes (documentos, fotos, audios, etc.)."
                 else:
                     response = formatear_mensaje(paso_desc, datos)
                 return jsonify(
