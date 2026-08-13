@@ -535,6 +535,20 @@ def chat():
                         "step": paso_actual_id,
                     }
                 )
+            if accion_boton == "consulta_adicional":
+                paso = obtener_paso("consulta_adicional")
+                if paso and paso.get("mensaje"):
+                    response = paso.get("mensaje", "")
+                    buttons = paso.get("botones")
+                    save_conversation(response, "manejo_post_cita")
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "pregunta_consultar",
+                        }
+                    )
             response = "¿Hay algo más en lo que pueda ayudarte?"
             buttons = [
                 {
