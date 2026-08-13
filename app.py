@@ -989,7 +989,10 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 email = getattr(chat, "user_email", "")
                 phone = getattr(chat, "user_phone", "")
                 category = getattr(chat, "case_category", "")
-                response = f"""📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.
+                appointment_date = getattr(
+                    chat, "appointment_time", "Lunes 29 de septiembre - 10:30 a.m."
+                )
+                response = f"""📅 Fecha: {appointment_date}
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
