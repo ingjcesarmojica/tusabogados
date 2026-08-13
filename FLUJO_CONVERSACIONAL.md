@@ -12,8 +12,8 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        INICIO                                       │
 │                    saludo_inicial                                    │
-│  "¡Bienvenido a TusAbogados.com! ... Por favor dígame sus          │
-│   nombres y apellidos."                                             │
+│  "¡Bienvenido a TusAbogados.com! ... Por favor dígame su        │
+│   nombre completo."                                             │
 │  [Validación: nombre + apellido]                                    │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │ Nombre válido
