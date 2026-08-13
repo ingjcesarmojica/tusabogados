@@ -14,6 +14,7 @@ import edge_tts
 import google.generativeai as genai
 from dotenv import load_dotenv
 from types import SimpleNamespace
+from database import guardar_conversacion
 
 chat = SimpleNamespace()
 
@@ -1400,6 +1401,20 @@ def list_voices():
         },
     ]
     return jsonify({"voices": voices, "current": TTS_VOICE})
+
+
+def save_conversation(response, paso_actual):
+    try:
+        datos = {
+            "email": getattr(chat, "user_email", ""),
+            "nombre": getattr(chat, "user_name", ""),
+            "mensaje_usuario": message if message else "",
+            "respuesta_agente": response,
+            "paso": paso_actual,
+        }
+        guardar_conversacion(datos)
+    except Exception as e:
+        app.logger.error(f"Error saving conversation: {e}")
 
 
 if __name__ == "__main__":
