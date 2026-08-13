@@ -1120,11 +1120,13 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 )
 
         if paso_actual_id == "pregunta_consultar":
-            if accion_boton == "consulta_adicional":
+            pregunta = message or ""
+            if not pregunta and accion_boton == "consulta_adicional":
                 paso = obtener_paso("consulta_adicional")
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
+                    save_conversation(response, "pregunta_consultar")
                     return jsonify(
                         {
                             "response": response,
@@ -1133,7 +1135,6 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                             "step": "pregunta_consultar",
                         }
                     )
-            pregunta = message or ""
             context = f"Usuario adicional: {pregunta}"
             rag_context = ""
             if RAG_AVAILABLE:
