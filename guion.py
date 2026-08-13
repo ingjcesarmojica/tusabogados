@@ -84,7 +84,7 @@ PASOS = {
     "descripcion_caso": {
         "id": "descripcion_caso",
         "siguiente": "captura_correo",
-        "mensaje": "Categoría {categoria} registrada. Ahora, describa brevemente su caso para entender mejor tu situación. Después de la señal, por favor describe brevemente los hechos de tu caso.",
+        "mensaje": "Excelente. Cuéntame brevemente qué sucedió en tu caso — con eso podré entender mejor tu situación. También puedes adjuntar los archivos que consideres relevantes (documentos, fotos, audios, etc.).",
         "validar": "descripcion",
         "botones": None,
         "campo": "case_description",
