@@ -952,7 +952,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 buttons = [
                     {
                         "texto": "Sí, agendar cita",
-                        "valor": "consulta_adicional",
+                        "valor": "confirmar",
                         "descripcion": "",
                     },
                     {
