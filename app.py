@@ -744,7 +744,7 @@ def chat():
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
@@ -996,7 +996,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
@@ -1047,7 +1047,7 @@ He analizado tu caso de {category}. Te comento que, si el monto supera los 10 mi
 📧 Confirmación enviada a: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso de {category}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.
+He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
             buttons = [

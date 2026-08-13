@@ -115,7 +115,7 @@ PASOS = {
     "confirmacion_cita_opcion": {
         "id": "confirmacion_cita_opcion",
         "siguiente": "manejo_post_cita",
-        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso de {categoria}. Te comento que, si el monto supera los 10 millones de pesos, no hay costo inicial: solo se aplica un honoratorio del 10% en caso de éxito.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
+        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
