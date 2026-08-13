@@ -17,20 +17,9 @@ PASOS = {
     "identificacion_rol": {
         "id": "identificacion_rol",
         "siguiente": "categorizacion_caso",
-        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber tu rol en el caso. Por favor, seleccione la opción que más se parezca a tu caso.",
+        "mensaje": "Un gusto, {nombre}. Para darte una orientación más precisa, cuéntame: ¿cuál es tu situación en este caso?",
         "validar": None,
-        "botones": [
-            {
-                "texto": "Demandado",
-                "valor": "demandado",
-                "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrí algún daño.",
-            },
-            {
-                "texto": "Demandante",
-                "valor": "demandante",
-                "descripcion": "Si quiero iniciar una demanda por divorcio, herencia, contrato, o mis derechos laborales.",
-            },
-        ],
+        "botones": None,
         "campo": "user_role",
     },
     "categorizacion_caso": {
