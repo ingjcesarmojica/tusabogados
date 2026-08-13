@@ -441,7 +441,7 @@ def chat():
         if paso_actual and paso_actual.get("fin"):
             if is_farewell or accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!"
+                response = f"Gracias a ti por confiar en nosotros. Ha sido un gusto atenderte. Un abogado se pondrá en contacto contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {
@@ -853,7 +853,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
 
             if accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted. Ha sido un gusto atenderte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!"
+                response = f"Gracias a ti por confiar en nosotros. Ha sido un gusto atenderte. Un abogado se pondrá en contacto contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {
