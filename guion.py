@@ -36,7 +36,7 @@ PASOS = {
     "categorizacion_caso": {
         "id": "categorizacion_caso",
         "siguiente": "verificacion_pruebas",
-        "mensaje": "Entendido, {nombre}, como {rol}. Ahora, ¿en qué categoría crees que está tu caso? Por favor, seleccione la opción que mejor se adapte a tu caso.",
+        "mensaje": "Perfecto, quedas registrado como {rol}. Ahora cuéntame, ¿en qué categoría se enmarca tu caso?",
         "validar": None,
         "botones": [
             {
