@@ -275,6 +275,9 @@ Usuario: {user_message}"""
             json=payload,
             timeout=30,
         )
+        app.logger.info(f"OpenRouter response status: {response.status_code}")
+        if response.status_code != 200:
+            app.logger.error(f"OpenRouter error body: {response.text[:500]}")
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -1196,11 +1199,14 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     )
             pregunta = message or ""
             context = f"Usuario adicional: {pregunta}"
-            llm_context = (
-                INSTRUCCIONES_PREGUNTAS_ADICIONALES
-                + f"\n\nContexto de la conversación:\n{context}"
+            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES
+            app.logger.info(
+                f"pregunta_consultar: pregunta='{pregunta}', OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
             )
             llm_resp = get_llm_response(pregunta, context=llm_context)
+            app.logger.info(
+                f"pregunta_consultar: llm_resp={llm_resp[:100] if llm_resp else 'None'}"
+            )
             if llm_resp:
                 response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda ayudarte?"
             else:
