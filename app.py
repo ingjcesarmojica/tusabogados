@@ -833,7 +833,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
             if accion_boton == "consulta_adicional":
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
-                response = f"Entendido, {name}. He registrado tu consulta adicional. Un abogado especializado se comunicará contigo según los datos agendados y te dará toda la información. ¿Hay alguna otra cosa en la que pueda asistirte?"
+                response = f"Entendido, {name}. Listo, he registrado tu consulta adicional. Un abogado especializado se pondrá en contacto contigo según la cita agendada y te brindará toda la información que necesitas. ¿Hay algo más en lo que pueda ayudarte?"
                 buttons = [
                     {
                         "texto": "Sí, tengo otra duda",
