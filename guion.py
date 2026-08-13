@@ -92,7 +92,7 @@ PASOS = {
     "captura_correo": {
         "id": "captura_correo",
         "siguiente": "captura_telefono",
-        "mensaje": "Gracias, {nombre}, por la información. Para agendar tu cita y enviarte la confirmación, ¿cuál es tu correo electrónico? Después de la señal, por favor pronuncia claramente tu correo electrónico.",
+        "mensaje": "Gracias por la información. Para agendar tu cita y enviarte la confirmación, necesito tu correo electrónico. ¿Podrías compartírmelo?",
         "validar": "correo",
         "botones": None,
         "campo": "user_email",
