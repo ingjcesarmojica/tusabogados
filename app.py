@@ -951,12 +951,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 response = f"Perfecto, ya tengo toda la información necesaria para orientarte en tu proceso. ¿Te parece bien si agendamos una cita con uno de nuestros abogados especializados para que te ayude con tu caso?"
                 buttons = [
                     {
-                        "texto": "Sí, tengo otra duda",
+                        "texto": "Sí, agendar cita",
                         "valor": "consulta_adicional",
                         "descripcion": "",
                     },
                     {
-                        "texto": "No, gracias",
+                        "texto": "No, por ahora no",
                         "valor": "despedida",
                         "descripcion": "",
                     },
