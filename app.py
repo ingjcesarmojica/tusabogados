@@ -929,7 +929,11 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                     }
                 )
 
-            if accion_boton == "consulta_adicional":
+            if accion_boton == "consulta_adicional" and paso_actual_id not in [
+                "manejo_post_cita",
+                "consulta_adicional",
+                "pregunta_consultar",
+            ]:
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
                 response = f"Entendido, {name}. Listo, he registrado tu consulta adicional. Un abogado especializado se pondrá en contacto contigo según la cita agendada y te brindará toda la información que necesitas. ¿Hay algo más en lo que pueda ayudarte?"
