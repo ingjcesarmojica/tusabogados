@@ -102,7 +102,9 @@ async def generate_edge_tts(text, voice=None):
 
 @app.before_request
 def log_config():
-    app.logger.info(f"Gemini configured: {GEMINI_CONFIGURED}")
+    app.logger.info(
+        f"Gemini configured: {GEMINI_CONFIGURED}, OpenRouter configured: {OPENROUTER_CONFIGURED}, Model: {OPENROUTER_MODEL}"
+    )
     app.logger.info(f"TTS Voice: {TTS_VOICE}")
 
 
@@ -287,13 +289,24 @@ Usuario: {user_message}"""
 
 
 def get_llm_response(user_message, context=""):
+    app.logger.info(
+        f"get_llm_response: OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
+    )
     if OPENROUTER_CONFIGURED:
+        app.logger.info("Intentando OpenRouter...")
         result = openrouter_response(user_message, context)
         if result:
+            app.logger.info(f"OpenRouter respondió: {result[:100]}...")
             return result
         app.logger.warning("OpenRouter falló, intentando Gemini como fallback")
     if GEMINI_CONFIGURED:
-        return gemini_response(user_message, context)
+        app.logger.info("Intentando Gemini...")
+        result = gemini_response(user_message, context)
+        if result:
+            app.logger.info(f"Gemini respondió: {result[:100]}...")
+            return result
+        app.logger.error("Gemini también falló")
+    app.logger.error("Ningún LLM respondió")
     return None
 
 
