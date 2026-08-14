@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
     GEMINI_CONFIGURED = True
 else:
     gemini_model = None
@@ -45,7 +45,9 @@ else:
     )
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-nano-30b-a3b")
+OPENROUTER_MODEL = os.environ.get(
+    "OPENROUTER_MODEL", "nvidia/nemotron-3-nano-30b-a3b"
+).strip()
 OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
 
 TTS_VOICE = os.environ.get("TTS_VOICE", "es-US-PalomaNeural")
@@ -1348,7 +1350,7 @@ def health_check():
     llm_model = (
         OPENROUTER_MODEL
         if OPENROUTER_CONFIGURED
-        else ("gemini-2.0-flash" if GEMINI_CONFIGURED else "none")
+        else ("gemini-2.5-flash" if GEMINI_CONFIGURED else "none")
     )
     return jsonify(
         {
