@@ -288,8 +288,11 @@ Usuario: {user_message}"""
 
 def get_llm_response(user_message, context=""):
     if OPENROUTER_CONFIGURED:
-        return openrouter_response(user_message, context)
-    elif GEMINI_CONFIGURED:
+        result = openrouter_response(user_message, context)
+        if result:
+            return result
+        app.logger.warning("OpenRouter falló, intentando Gemini como fallback")
+    if GEMINI_CONFIGURED:
         return gemini_response(user_message, context)
     return None
 
