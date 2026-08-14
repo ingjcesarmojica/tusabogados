@@ -1363,6 +1363,46 @@ def health_check():
     )
 
 
+@app.route("/api/test-gemini", methods=["GET"])
+def test_gemini():
+    """Test endpoint to check if Gemini text generation works."""
+    try:
+        if not GEMINI_CONFIGURED or gemini_model is None:
+            return jsonify(
+                {"error": "Gemini no configurado", "configured": GEMINI_CONFIGURED}
+            ), 500
+        response = gemini_model.generate_content("Responde solo: hola")
+        return jsonify({"status": "ok", "response": response.text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/test-openrouter", methods=["GET"])
+def test_openrouter():
+    """Test endpoint to check if OpenRouter works."""
+    try:
+        if not OPENROUTER_API_KEY:
+            return jsonify({"error": "OPENROUTER_API_KEY no configurada"}), 500
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": [{"role": "user", "content": "Responde solo: hola"}],
+            "max_tokens": 50,
+        }
+        r = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=15,
+        )
+        return jsonify({"status": r.status_code, "body": r.text[:500]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/test-embedding", methods=["GET"])
 def test_embedding():
     """Test endpoint to check if Gemini embeddings work."""
