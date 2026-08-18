@@ -457,7 +457,7 @@ def chat():
             chat.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
             response = paso["mensaje"]
-            save_conversation(response, "saludo_inicial")
+            save_conversation(response, "saludo_inicial", message)
             return jsonify(
                 {
                     "response": response,
@@ -619,7 +619,7 @@ def chat():
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
                     chat.paso_actual = "pregunta_consultar"
-                    save_conversation(response, "manejo_post_cita")
+                    save_conversation(response, "manejo_post_cita", message)
                     return jsonify(
                         {
                             "response": response,
@@ -992,7 +992,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 name = getattr(chat, "user_name", "")
                 response = f"Gracias a ti por confiar en nosotros. Ha sido un gusto atenderte. Un abogado se pondrá en contacto contigo en la fecha acordada. ¡Que tengas un excelente día!"
                 limpiar_estado_chat()
-                save_conversation(response, "despedida")
+                save_conversation(response, "despedida", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1274,7 +1274,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
                     chat.paso_actual = "pregunta_consultar"
-                    save_conversation(response, "pregunta_consultar")
+                    save_conversation(response, "pregunta_consultar", message)
                     return jsonify(
                         {
                             "response": response,
@@ -1313,7 +1313,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     "step": "pregunta_consultar",
                 }
             )
-        save_conversation(response, paso_actual_id)
+        save_conversation(response, paso_actual_id, message)
 
         response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
@@ -1589,12 +1589,12 @@ def list_voices():
     return jsonify({"voices": voices, "current": TTS_VOICE})
 
 
-def save_conversation(response, paso_actual):
+def save_conversation(response, paso_actual, user_message=""):
     try:
         datos = {
             "email": getattr(chat, "user_email", ""),
             "nombre": getattr(chat, "user_name", ""),
-            "mensaje_usuario": message if message else "",
+            "mensaje_usuario": user_message if user_message else "",
             "respuesta_agente": response,
             "paso": paso_actual,
         }
