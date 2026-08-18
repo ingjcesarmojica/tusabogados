@@ -828,6 +828,7 @@ def chat():
                 paso_cat = obtener_paso("categorizacion_caso")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_cat, datos)
+                save_conversation(response, "identificacion_rol", message)
                 return jsonify(
                     {
                         "response": response,
@@ -843,6 +844,7 @@ def chat():
                 paso_pruebas = obtener_paso("verificacion_pruebas")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_pruebas, datos)
+                save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
                     {
                         "response": response,
@@ -857,6 +859,7 @@ def chat():
                 paso_desc_cat = obtener_paso("descripcion_categoria")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_desc_cat, datos)
+                save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
                     {
                         "response": response,
@@ -875,6 +878,7 @@ def chat():
                     response = "Excelente. Cuéntame brevemente qué sucedió en tu caso — con eso podré entender mejor tu situación. También puedes adjuntar los archivos que consideres relevantes (documentos, fotos, audios, etc.)."
                 else:
                     response = formatear_mensaje(paso_desc, datos)
+                save_conversation(response, "verificacion_pruebas", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1056,6 +1060,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 paso_rol = obtener_paso("identificacion_rol")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_rol, datos)
+                save_conversation(response, "saludo_inicial", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1082,6 +1087,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 paso_correo = obtener_paso("captura_correo")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_correo, datos)
+                save_conversation(response, "descripcion_caso", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1112,6 +1118,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 paso_pruebas = obtener_paso("verificacion_pruebas")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_pruebas, datos)
+                save_conversation(response, "descripcion_categoria", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1138,6 +1145,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 paso_tel = obtener_paso("captura_telefono")
                 datos = obtener_estado_chat()
                 response = formatear_mensaje(paso_tel, datos)
+                save_conversation(response, "captura_correo", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1175,6 +1183,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "descripcion": "",
                     },
                 ]
+                save_conversation(response, "captura_telefono", message)
                 return jsonify(
                     {
                         "response": response,
@@ -1299,6 +1308,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 },
                 {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
             ]
+            save_conversation(response, "confirmacion_cita_opcion", message)
             return jsonify(
                 {
                     "response": response,
