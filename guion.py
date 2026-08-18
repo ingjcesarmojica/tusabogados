@@ -62,6 +62,14 @@ PASOS = {
         ],
         "campo": "case_category",
     },
+    "descripcion_categoria": {
+        "id": "descripcion_categoria",
+        "siguiente": "verificacion_pruebas",
+        "mensaje": "Para poder colaborarte y orientarte a qué categoría pertenece tu caso, por favor ingresa una pequeña descripción del mismo. Con esa información podré determinar si se trata de un caso civil, laboral o penal.",
+        "validar": "descripcion",
+        "botones": None,
+        "campo": "case_description",
+    },
     "verificacion_pruebas": {
         "id": "verificacion_pruebas",
         "siguiente": "descripcion_caso",

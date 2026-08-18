@@ -312,6 +312,26 @@ def get_llm_response(user_message, context=""):
     return None
 
 
+def categorizar_caso_con_llm(descripcion):
+    prompt = f"""Eres una asistente legal especializada. Basándote en la siguiente descripción de un caso, clasifícalo en UNA de estas tres categorías:
+
+- civil: divorce, herencias, contratos, propiedad, indemnización por daños, custody de menores, sucesiones, arrendamientos, responsabilidad civil.
+- laboral: despido injustificado, acoso laboral, prestaciones sociales, liquidación, indemnización laboral, accidentes de trabajo, derechos del trabajador.
+- penal: robos, agresiones, amenazas, estafas, fraudes, violencia, delitos, denuncias penales.
+
+Descripción del caso: {descripcion}
+
+Responde ÚNICAMENTE con una de estas palabras exactas: civil, laboral o penal. No expliques nada más."""
+
+    respuesta = get_llm_response(prompt)
+    if respuesta:
+        respuesta_limpia = respuesta.strip().lower()
+        for cat in ["civil", "laboral", "penal"]:
+            if cat in respuesta_limpia:
+                return cat
+    return None
+
+
 def validate_name(name):
     if not name or len(name.strip()) < 2:
         return (
@@ -798,7 +818,7 @@ def chat():
                     }
                 )
 
-            if accion_boton in ["civil", "laboral", "penal", "no_definida"]:
+            if accion_boton in ["civil", "laboral", "penal"]:
                 guardar_estado_campo("case_category", accion_boton)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
@@ -810,6 +830,20 @@ def chat():
                         "end_call": False,
                         "buttons": paso_pruebas["botones"],
                         "step": "verificacion_pruebas",
+                    }
+                )
+
+            if accion_boton == "no_definida":
+                chat.paso_actual = "descripcion_categoria"
+                paso_desc_cat = obtener_paso("descripcion_categoria")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_desc_cat, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_categoria",
                     }
                 )
 
@@ -1008,6 +1042,36 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "end_call": False,
                         "buttons": None,
                         "step": "captura_correo",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "descripcion_categoria":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                chat.case_description = result
+                categoria_detectada = categorizar_caso_con_llm(result)
+                if categoria_detectada not in ["civil", "laboral", "penal"]:
+                    categoria_detectada = "laboral"
+                guardar_estado_campo("case_category", categoria_detectada)
+                chat.paso_actual = "verificacion_pruebas"
+                paso_pruebas = obtener_paso("verificacion_pruebas")
+                datos = obtener_estado_chat()
+                response = formatear_mensaje(paso_pruebas, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_pruebas["botones"],
+                        "step": "verificacion_pruebas",
                     }
                 )
             else:
