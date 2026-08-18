@@ -73,7 +73,7 @@ PASOS = {
     "verificacion_pruebas": {
         "id": "verificacion_pruebas",
         "siguiente": "descripcion_caso",
-        "mensaje": "Perfecto, tu caso está relacionado con derecho laboral. Una pregunta importante: ¿cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?",
+        "mensaje": "Perfecto, tu caso está relacionado con derecho {categoria}. Una pregunta importante: ¿cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?",
         "validar": None,
         "botones": [
             {

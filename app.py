@@ -881,8 +881,13 @@ def chat():
                 guardar_estado_campo("case_category", accion_boton)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_pruebas, datos)
+                context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregunta si tiene pruebas (documentos, fotos, audios). Sé breve, 1-2 oraciones."
+                llm_resp = get_llm_response(message, context=context)
+                response = (
+                    llm_resp
+                    if llm_resp
+                    else f"Perfecto, tu caso está relacionado con derecho {accion_boton}. ¿Cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?"
+                )
                 save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
                     {
@@ -1155,8 +1160,13 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 guardar_estado_campo("case_category", categoria_detectada)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                datos = obtener_estado_chat()
-                response = formatear_mensaje(paso_pruebas, datos)
+                context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirmale la categoría y pregunta si tiene pruebas (documentos, fotos, audios). Sé breve, 1-2 oraciones."
+                llm_resp = get_llm_response(message, context=context)
+                response = (
+                    llm_resp
+                    if llm_resp
+                    else f"Tu caso corresponde a derecho {categoria_detectada}. ¿Cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?"
+                )
                 save_conversation(response, "descripcion_categoria", message)
                 return jsonify(
                     {
