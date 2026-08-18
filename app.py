@@ -70,7 +70,7 @@ Si el usuario hace una pregunta que no está contemplada en el flujo conversacio
       - Al final, aclara que se trata de información general y que un abogado humano debe revisar el caso específico para dar una asesoría formal y personalizada.
       - Ejemplo de cierre: "Ten en cuenta que esto es una orientación general; para una asesoría precisa sobre tu situación, uno de nuestros abogados especializados debe revisar tu caso en detalle."
 
-   b) Si la pregunta es sobre un ÁREA LEGAL DISTINTA a la que ya está registrada en el caso del usuario (ej. el usuario ya registró un caso laboral pero ahora pregunta sobre un tema civil o penal):
+   b) Si la pregunta es sobre un ÁREA LEGAL DISTINTA a la que ya está registrada en el caso del usuario (ej. el usuario ya registró un caso pero ahora pregunta sobre un tema de otra área):
       - Indica que puedes ayudarle a registrar este nuevo caso también.
       - Ofrece iniciar un nuevo proceso de categorización para esa consulta, sin perder los datos de contacto ya registrados.
 
@@ -158,10 +158,10 @@ def gemini_response(user_message, context=""):
     if not GEMINI_CONFIGURED or gemini_model is None:
         return None
     try:
-        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho Laboral de TusAbogados.com.
+        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
-- Eres una abogada laboralista con experiencia.
+- Eres una abogada con experiencia en derecho civil, laboral y penal.
 - Hablas con profesionalismo y calidez, como lo haría un abogado real.
 - Usas terminología legal cuando es apropiado, pero la explicas en lenguaje sencillo.
 - Transmites confianza, seguridad y empatía.
@@ -179,8 +179,8 @@ def gemini_response(user_message, context=""):
 
 ## Reglas generales
 - Responde en máximo 2-3 oraciones.
-- Si te preguntan algo de derecho laboral, responde con precisión legal pero explicando en lenguaje simple.
-- Usa términos como: despido injustificado, justa causa, liquidación, prestaciones sociales, indemnización, conciliación, juzgado laboral, derecho laboral.
+- Si te preguntan algo de derecho, responde con precisión legal pero explicando en lenguaje simple.
+- Usa términos legales apropiados según el área del caso.
 - Siempre orienta pero NO das asesoría legal definitiva, eso lo hace el abogado humano.
 - Nunca uses expresiones informales como "genial", "perfecto", "listo", "dale". Usa: "Entiendo", "Comprendo", "Procederé a", "Le comento que"."""
 
@@ -217,10 +217,10 @@ def openrouter_response(user_message, context=""):
     if not OPENROUTER_CONFIGURED:
         return None
     try:
-        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho Laboral de TusAbogados.com.
+        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
-- Eres una abogada laboralista con experiencia.
+- Eres una abogada con experiencia en derecho civil, laboral y penal.
 - Hablas con profesionalismo y calidez, como lo haría un abogado real.
 - Usas terminología legal cuando es apropiado, pero la explicas en lenguaje sencillo.
 - Transmites confianza, seguridad y empatía.
@@ -238,8 +238,8 @@ def openrouter_response(user_message, context=""):
 
 ## Reglas generales
 - Responde en máximo 2-3 oraciones.
-- Si te preguntan algo de derecho laboral, responde con precisión legal pero explicando en lenguaje simple.
-- Usa términos como: despido injustificado, justa causa, liquidación, prestaciones sociales, indemnización, conciliación, juzgado laboral, derecho laboral.
+- Si te preguntan algo de derecho, responde con precisión legal pero explicando en lenguaje simple.
+- Usa términos legales apropiados según el área del caso.
 - Siempre orienta pero NO das asesoría legal definitiva, eso lo hace el abogado humano.
 - Nunca uses expresiones informales como "genial", "perfecto", "listo", "dale". Usa: "Entiendo", "Comprendo", "Procederé a", "Le comento que"."""
 
@@ -394,7 +394,7 @@ def validate_subtype(subtype):
     if not subtype or len(subtype.strip()) < 3:
         return (
             False,
-            "¿Qué tipo de situación laboral está atrayendo? Por ejemplo, despido injustificado, acoso laboral, impago de prestaciones...",
+            "¿Qué tipo de situación estás atravesando? Por ejemplo, despido injustificado, acoso laboral, impago de prestaciones...",
         )
     return True, subtype.strip()
 
