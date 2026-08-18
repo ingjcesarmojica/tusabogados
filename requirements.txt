@@ -8,3 +8,4 @@ requests>=2.31.0
 setuptools>=75.0.0
 pinecone>=6.0.0
 PyPDF2>=3.0.0
+supabase>=2.0.0
