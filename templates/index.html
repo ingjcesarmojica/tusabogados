@@ -1469,6 +1469,24 @@
         
         window.addEventListener('load', function() {
             document.getElementById('statusIndicator').textContent = 'Este es un Agente de IA - TusAbogados.com 2026';
+            showTyping();
+            setTimeout(function() {
+                fetch(CHAT_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: '', action: 'nueva_llamada' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideTyping();
+                    if (data.response) {
+                        addMessage(data.response, 'bot', data.buttons);
+                    }
+                })
+                .catch(error => {
+                    hideTyping();
+                });
+            }, 2000);
         });
     </script>
 </body>
