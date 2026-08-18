@@ -318,22 +318,61 @@ def get_llm_response(user_message, context=""):
 
 
 def categorizar_caso_con_llm(descripcion):
-    prompt = f"""Eres una asistente legal especializada. Basándote en la siguiente descripción de un caso, clasifícalo en UNA de estas tres categorías:
+    system_prompt = "Eres un asistente de clasificación de casos legales. Tu ÚNICO trabajo es clasificar la descripción del caso en una categoría. No saludes, no expliques, no converses."
 
-- civil: divorce, herencias, contratos, propiedad, indemnización por daños, custody de menores, sucesiones, arrendamientos, responsabilidad civil.
-- laboral: despido injustificado, acoso laboral, prestaciones sociales, liquidación, indemnización laboral, accidentes de trabajo, derechos del trabajador.
-- penal: robos, agresiones, amenazas, estafas, fraudes, violencia, delitos, denuncias penales.
+    prompt = f"""{system_prompt}
 
-Descripción del caso: {descripcion}
+Clasifica el siguiente caso en UNA sola categoría:
 
-Responde ÚNICAMENTE con una de estas palabras exactas: civil, laboral o penal. No expliques nada más."""
+- CIVIL: divorcio, herencias, contratos, propiedad, indemnización por daños, custodia de menores, sucesiones, arrendamientos, responsabilidad civil.
+- LABORAL: despido injustificado, acoso laboral, prestaciones sociales, liquidación, indemnización laboral, accidentes de trabajo, derechos del trabajador.
+- PENAL: robos, agresiones, amenazas, estafas, fraudes, violencia, delitos, denuncias penales.
 
-    respuesta = get_llm_response(prompt)
-    if respuesta:
-        respuesta_limpia = respuesta.strip().lower()
-        for cat in ["civil", "laboral", "penal"]:
-            if cat in respuesta_limpia:
-                return cat
+Descripción: {descripcion}
+
+Responde SOLO con la palabra: civil, laboral o penal."""
+
+    try:
+        if OPENROUTER_CONFIGURED:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": OPENROUTER_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 10,
+            }
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=15,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                respuesta = data["choices"][0]["message"]["content"].strip().lower()
+                app.logger.info(
+                    f"Categorización LLM: '{respuesta}' para descripción: '{descripcion[:80]}'"
+                )
+                for cat in ["civil", "laboral", "penal"]:
+                    if cat in respuesta:
+                        return cat
+
+        if GEMINI_CONFIGURED and gemini_model is not None:
+            response = gemini_model.generate_content(prompt)
+            respuesta = response.text.strip().lower()
+            app.logger.info(
+                f"Categorización Gemini: '{respuesta}' para descripción: '{descripcion[:80]}'"
+            )
+            for cat in ["civil", "laboral", "penal"]:
+                if cat in respuesta:
+                    return cat
+
+    except Exception as e:
+        app.logger.error(f"Error en categorizar_caso_con_llm: {e}")
+
     return None
 
 
