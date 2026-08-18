@@ -841,6 +841,8 @@
             document.getElementById('sendBtn').disabled = true;
             showTyping();
             
+            var startTime = Date.now();
+            
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -848,27 +850,31 @@
             })
             .then(response => response.json())
             .then(data => {
-                hideTyping();
-                document.getElementById('sendBtn').disabled = false;
-                
-                if (data.error) {
-                    addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
-                    return;
-                }
-                
-                addMessage(data.response, 'bot', data.buttons);
-                toggleUploadBtn('chat', data.show_upload);
-                
-                if (data.end_call) {
-                    document.getElementById('chatMessages').innerHTML = '';
-                    document.getElementById('chatInput').value = '';
-                    var toast = document.getElementById('goodbyeToast');
-                    toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
-                    toast.classList.add('show');
-                    setTimeout(function() {
-                        toast.classList.remove('show');
-                    }, 5000);
-                }
+                var elapsed = Date.now() - startTime;
+                var remaining = Math.max(0, 3000 - elapsed);
+                setTimeout(function() {
+                    hideTyping();
+                    document.getElementById('sendBtn').disabled = false;
+                    
+                    if (data.error) {
+                        addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
+                        return;
+                    }
+                    
+                    addMessage(data.response, 'bot', data.buttons);
+                    toggleUploadBtn('chat', data.show_upload);
+                    
+                    if (data.end_call) {
+                        document.getElementById('chatMessages').innerHTML = '';
+                        document.getElementById('chatInput').value = '';
+                        var toast = document.getElementById('goodbyeToast');
+                        toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
+                        toast.classList.add('show');
+                        setTimeout(function() {
+                            toast.classList.remove('show');
+                        }, 5000);
+                    }
+                }, remaining);
             })
             .catch(error => {
                 hideTyping();
@@ -882,6 +888,8 @@
             
             showTyping();
             
+            var startTime = Date.now();
+            
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -889,26 +897,30 @@
             })
             .then(response => response.json())
             .then(data => {
-                hideTyping();
-                
-                if (data.error) {
-                    addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
-                    return;
-                }
-                
-                addMessage(data.response, 'bot', data.buttons);
-                toggleUploadBtn('chat', data.show_upload);
-                
-                if (data.end_call) {
-                    document.getElementById('chatMessages').innerHTML = '';
-                    document.getElementById('chatInput').value = '';
-                    var toast = document.getElementById('goodbyeToast');
-                    toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
-                    toast.classList.add('show');
-                    setTimeout(function() {
-                        toast.classList.remove('show');
-                    }, 5000);
-                }
+                var elapsed = Date.now() - startTime;
+                var remaining = Math.max(0, 3000 - elapsed);
+                setTimeout(function() {
+                    hideTyping();
+                    
+                    if (data.error) {
+                        addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
+                        return;
+                    }
+                    
+                    addMessage(data.response, 'bot', data.buttons);
+                    toggleUploadBtn('chat', data.show_upload);
+                    
+                    if (data.end_call) {
+                        document.getElementById('chatMessages').innerHTML = '';
+                        document.getElementById('chatInput').value = '';
+                        var toast = document.getElementById('goodbyeToast');
+                        toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
+                        toast.classList.add('show');
+                        setTimeout(function() {
+                            toast.classList.remove('show');
+                        }, 5000);
+                    }
+                }, remaining);
             })
             .catch(error => {
                 hideTyping();
@@ -1469,24 +1481,6 @@
         
         window.addEventListener('load', function() {
             document.getElementById('statusIndicator').textContent = 'Este es un Agente de IA - TusAbogados.com 2026';
-            showTyping();
-            setTimeout(function() {
-                fetch(CHAT_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: '', action: 'nueva_llamada' })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    hideTyping();
-                    if (data.response) {
-                        addMessage(data.response, 'bot', data.buttons);
-                    }
-                })
-                .catch(error => {
-                    hideTyping();
-                });
-            }, 2000);
         });
     </script>
 </body>
