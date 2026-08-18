@@ -133,7 +133,11 @@ def guardar_conversacion(datos):
             "created_at": datetime.utcnow().isoformat(),
         }
 
+        logger.info(f"guardar_conversacion: registro={registro}")
         result = sb.table("conversaciones").insert(registro).execute()
+        logger.info(
+            f"guardar_conversacion: result.data={result.data if hasattr(result, 'data') else 'no data attr'}"
+        )
 
         conv_id = None
         if hasattr(result, "data") and result.data:

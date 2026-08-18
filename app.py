@@ -1591,14 +1591,20 @@ def list_voices():
 
 def save_conversation(response, paso_actual, user_message=""):
     try:
+        email = getattr(chat, "user_email", "")
+        nombre = getattr(chat, "user_name", "")
+        app.logger.info(
+            f"save_conversation: email={email}, nombre={nombre}, paso={paso_actual}, msg_len={len(user_message or '')}"
+        )
         datos = {
-            "email": getattr(chat, "user_email", ""),
-            "nombre": getattr(chat, "user_name", ""),
+            "email": email,
+            "nombre": nombre,
             "mensaje_usuario": user_message if user_message else "",
             "respuesta_agente": response,
             "paso": paso_actual,
         }
-        guardar_conversacion(datos)
+        resultado = guardar_conversacion(datos)
+        app.logger.info(f"save_conversation resultado: {resultado}")
     except Exception as e:
         app.logger.error(f"Error saving conversation: {e}")
 
