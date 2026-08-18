@@ -835,7 +835,8 @@
                 toggleUploadBtn('chat', data.show_upload);
                 
                 if (data.end_call) {
-                    switchMode('chat');
+                    document.getElementById('chatMessages').innerHTML = '';
+                    document.getElementById('chatInput').value = '';
                 }
             })
             .catch(error => {
@@ -868,7 +869,8 @@
                 toggleUploadBtn('chat', data.show_upload);
                 
                 if (data.end_call) {
-                    switchMode('chat');
+                    document.getElementById('chatMessages').innerHTML = '';
+                    document.getElementById('chatInput').value = '';
                 }
             })
             .catch(error => {

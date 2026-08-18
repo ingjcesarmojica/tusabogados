@@ -523,6 +523,20 @@ def chat():
         paso_actual_id = getattr(chat, "paso_actual", "saludo_inicial")
         paso_actual = obtener_paso(paso_actual_id)
 
+        if not hasattr(chat, "paso_actual"):
+            limpiar_estado_chat()
+            chat.paso_actual = "saludo_inicial"
+            paso = obtener_paso("saludo_inicial")
+            response = paso["mensaje"]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": None,
+                    "step": "saludo_inicial",
+                }
+            )
+
         if is_greeting and paso_actual_id == "saludo_inicial":
             limpiar_estado_chat()
             chat.paso_actual = "saludo_inicial"
