@@ -376,64 +376,6 @@ Responde SOLO con la palabra: civil, laboral o penal."""
     return None
 
 
-def validate_name(name):
-    if not name or len(name.strip()) < 2:
-        return (
-            False,
-            "Por favor, indíqueme su nombre completo para proceder con la cita.",
-        )
-    if re.match(r"^[\d\s]+$", name.strip()):
-        return (
-            False,
-            "El nombre ingresado no parece válido. Por favor, indíqueme su nombre completo.",
-        )
-    return True, name.strip()
-
-
-def validate_subtype(subtype):
-    if not subtype or len(subtype.strip()) < 3:
-        return (
-            False,
-            "¿Qué tipo de situación estás atravesando? Por ejemplo, despido injustificado, acoso laboral, impago de prestaciones...",
-        )
-    return True, subtype.strip()
-
-
-def validate_description(desc):
-    if not desc or len(desc.strip()) < 5:
-        return (
-            False,
-            "Le agradecería que me describa brevemente los hechos de su caso: fechas, personas involucradas y circunstancias.",
-        )
-    return True, desc.strip()
-
-
-def validate_email(email):
-    if not email:
-        return (
-            False,
-            "¿Cuál es su correo electrónico? Lo necesito para enviarle la confirmación de la cita.",
-        )
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
-        return (
-            False,
-            "El correo electrónico ingresado no tiene un formato válido. Por favor, verifíquelo e ingréselo nuevamente (ejemplo: nombre@correo.com).",
-        )
-    return True, email.strip()
-
-
-def validate_phone(phone):
-    if not phone:
-        return False, "¿Cuál es su número de teléfono de contacto?"
-    digits = re.sub(r"[^0-9]", "", phone)
-    if len(digits) < 7 or len(digits) > 15:
-        return (
-            False,
-            "El número de teléfono ingresado no parece correcto. Por favor, verifíquelo e ingréselo sin espacios ni guiones (ejemplo: 3001234567).",
-        )
-    return True, digits
-
-
 def limpiar_estado_chat():
     """Limpia el estado de la conversación."""
     attrs = [

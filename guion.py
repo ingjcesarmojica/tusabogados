@@ -285,21 +285,72 @@ def validar_correo(respuesta):
     """
     import re
 
-    MENSAJE_CORREO = "Por favor, verifica que el correo electrónico sea válido e intenta de nuevo. Ejemplo: nombre@correo.com. Después de la señal, pronuncia claramente tu correo electrónico."
+    MENSAJE_CORREO = "El correo electrónico ingresado no parece correcto. Verifícalo e ingrésalo nuevamente. Ejemplo: nombre@correo.com."
 
     if not respuesta:
-        return False, MENSAJE_CORREO
+        return (
+            False,
+            "¿Cuál es su correo electrónico? Lo necesito para enviarle la confirmación de la cita.",
+        )
 
     respuesta = respuesta.strip().lower()
 
-    # Formato básico
     patron = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(patron, respuesta):
         return False, MENSAJE_CORREO
 
-    # Verificar que no tenga caracteres extraños
     if ".." in respuesta or "--" in respuesta or "__" in respuesta:
         return False, MENSAJE_CORREO
+
+    dominios_correctos = {
+        "gmail.com",
+        "hotmail.com",
+        "outlook.com",
+        "yahoo.com",
+        "live.com",
+        "icloud.com",
+        "aol.com",
+        "protonmail.com",
+        "zoho.com",
+        "mail.com",
+        "yandex.com",
+    }
+
+    dominios_typos = {
+        "gmals.com": "gmail.com",
+        "gmal.com": "gmail.com",
+        "gmaill.com": "gmail.com",
+        "gamil.com": "gmail.com",
+        "gmail.co": "gmail.com",
+        "gnail.com": "gmail.com",
+        "hotmal.com": "hotmail.com",
+        "hotmial.com": "hotmail.com",
+        "hotmil.com": "hotmail.com",
+        "hotmail.co": "hotmail.com",
+        "outlok.com": "outlook.com",
+        "outloo.com": "outlook.com",
+        "outlook.co": "outlook.com",
+        "yahooo.com": "yahoo.com",
+        "yaho.com": "yahoo.com",
+        "yahoo.co": "yahoo.com",
+    }
+
+    dominio = respuesta.split("@")[1]
+
+    if dominio in dominios_typos:
+        sugerencia = dominios_typos[dominio]
+        return (
+            False,
+            f"Parece que quisiste decir @{sugerencia}. Por favor, verifica tu correo electrónico e ingrésalo correctamente.",
+        )
+
+    if dominio not in dominios_correctos and not dominio.endswith(
+        (".edu", ".gov", ".org", ".net")
+    ):
+        return (
+            False,
+            f"El dominio @{dominio} no es reconocido. Verifica que tu correo sea correcto (gmail.com, hotmail.com, outlook.com, etc.).",
+        )
 
     return True, respuesta
 
