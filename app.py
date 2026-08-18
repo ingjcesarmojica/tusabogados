@@ -14,7 +14,12 @@ import edge_tts
 import google.generativeai as genai
 from dotenv import load_dotenv
 from types import SimpleNamespace
-from database import guardar_conversacion
+from database import (
+    guardar_conversacion,
+    guardar_usuario,
+    guardar_cita,
+    guardar_consulta_adicional,
+)
 
 chat = SimpleNamespace()
 
@@ -887,6 +892,33 @@ def chat():
                 email = getattr(chat, "user_email", "")
                 phone = getattr(chat, "user_phone", "")
                 category = getattr(chat, "case_category", "")
+                description = getattr(chat, "case_description", "")
+                role = getattr(chat, "user_role", "")
+
+                guardar_usuario(
+                    {
+                        "nombre": name,
+                        "email": email,
+                        "telefono": phone,
+                        "rol": role,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "tiene_pruebas": getattr(chat, "has_evidence", ""),
+                        "paso_actual": "confirmacion_cita",
+                    }
+                )
+                guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "fecha_cita": "2026-09-29",
+                        "hora_cita": "10:30",
+                        "estado": "confirmada",
+                    }
+                )
                 response = f"""📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
@@ -1171,8 +1203,35 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 email = getattr(chat, "user_email", "")
                 phone = getattr(chat, "user_phone", "")
                 category = getattr(chat, "case_category", "")
+                description = getattr(chat, "case_description", "")
+                role = getattr(chat, "user_role", "")
                 appointment_date = getattr(
                     chat, "appointment_time", "Lunes 29 de septiembre - 10:30 a.m."
+                )
+
+                guardar_usuario(
+                    {
+                        "nombre": name,
+                        "email": email,
+                        "telefono": phone,
+                        "rol": role,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "tiene_pruebas": getattr(chat, "has_evidence", ""),
+                        "paso_actual": "confirmacion_cita",
+                    }
+                )
+                guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "fecha_cita": "2026-09-29",
+                        "hora_cita": "10:30",
+                        "estado": "confirmada",
+                    }
                 )
                 response = f"""📅 Fecha: {appointment_date}
 📧 Correo de confirmación: {email}
@@ -1272,6 +1331,13 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 buttons = paso.get("botones")
                 chat.paso_actual = "pregunta_consultar"
                 buttons = paso.get("botones")
+                guardar_consulta_adicional(
+                    {
+                        "email": getattr(chat, "user_email", ""),
+                        "nombre": getattr(chat, "user_name", ""),
+                        "consulta": message,
+                    }
+                )
                 return jsonify(
                     {
                         "response": response,
