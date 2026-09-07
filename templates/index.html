@@ -653,7 +653,7 @@
             <div class="profile-section">
                 <div class="online-badge">En línea</div>
                 <div class="avatar-container">
-                    <div class="avatar"></div>
+                    <div class="avatar" id="agentAvatar"></div>
                     <div class="pulse-rings" id="pulseRings">
                         <div class="pulse-ring"></div>
                         <div class="pulse-ring"></div>
@@ -661,8 +661,8 @@
                     </div>
                 </div>
                 
-                <div class="profile-name">Claudia García</div>
-                <div class="profile-title">Agente Especializada en Derecho</div>
+                <div class="profile-name" id="agentProfileName">Claudia García</div>
+                <div class="profile-title" id="agentProfileTitle">Agente Especializada en Derecho</div>
             </div>
         </div>
         
@@ -732,6 +732,24 @@
     </div>
 
     <script>
+        // ===== CONFIGURAR AGENTE DESDE URL =====
+        (function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var nombreParam = urlParams.get('nombre');
+            var fotoParam = urlParams.get('foto');
+            if (nombreParam) {
+                var nombreDecodificado = decodeURIComponent(nombreParam);
+                var profileNameEl = document.getElementById('agentProfileName');
+                if (profileNameEl) profileNameEl.textContent = nombreDecodificado;
+                document.title = nombreDecodificado + ' - Agente Especializada en Derecho';
+            }
+            if (fotoParam) {
+                var fotoDecodificada = decodeURIComponent(fotoParam);
+                var avatarEl = document.getElementById('agentAvatar');
+                if (avatarEl) avatarEl.style.backgroundImage = "url('" + fotoDecodificada + "')";
+            }
+        })();
+
         let currentMode = 'chat';
         let isCalling = false;
         let isListening = false;
