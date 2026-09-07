@@ -746,7 +746,12 @@
             if (fotoParam) {
                 var fotoDecodificada = decodeURIComponent(fotoParam);
                 var avatarEl = document.getElementById('agentAvatar');
-                if (avatarEl) avatarEl.style.backgroundImage = "url('" + fotoDecodificada + "')";
+                if (avatarEl) {
+                    avatarEl.style.backgroundImage = "url('" + fotoDecodificada + "')";
+                    avatarEl.style.backgroundPosition = 'center top';
+                    avatarEl.style.backgroundSize = 'cover';
+                    avatarEl.style.backgroundRepeat = 'no-repeat';
+                }
             }
         })();
 
