@@ -1,7 +1,7 @@
 """
 Calendario de Citas - TusAbogados.com
 Genera fechas disponibles de lunes a sábado, excluyendo festivos colombianos.
-Rango: 11 de agosto al 31 de diciembre de 2026.
+Rango: desde el día siguiente hasta 31 de diciembre de 2026.
 """
 
 from datetime import date, timedelta, datetime
@@ -18,16 +18,31 @@ FESTIVOS_COLOMBIA_2026 = {
 }
 
 # ── Horarios disponibles ──────────────────────────────────────────────
+# 8:00 AM a 11:00 AM (mañana), 2:00 PM a 4:00 PM (tarde)
+# Se salta 12:00 PM - 2:00 PM (horas de almuerzo)
 HORARIOS_DISPONIBLES = [
+    "08:00",
     "09:00",
-    "10:30",
+    "10:00",
+    "11:00",
     "14:00",
-    "15:30",
+    "15:00",
+    "16:00",
 ]
 
 # ── Rango del calendario ─────────────────────────────────────────────
 FECHA_INICIO = date(2026, 8, 11)
 FECHA_FIN = date(2026, 12, 31)
+
+
+def _fecha_inicio_dinamica():
+    """Retorna el día siguiente a la fecha actual como fecha mínima para agendar."""
+    hoy = date.today()
+    manana = hoy + timedelta(days=1)
+    # Si el día siguiente es anterior a FECHA_INICIO, usar FECHA_INICIO
+    if manana < FECHA_INICIO:
+        return FECHA_INICIO
+    return manana
 
 
 def es_festivo(fecha):
@@ -36,7 +51,7 @@ def es_festivo(fecha):
 
 
 def nombre_festivo(fecha):
-    """Retorna el nombre del festivo si lo es,否则 None."""
+    """Retorna el nombre del festivo si lo es, None en caso contrario."""
     return FESTIVOS_COLOMBIA_2026.get(fecha)
 
 
@@ -114,10 +129,10 @@ def fechas_disponibles():
 def siguiente_fecha_disponible(desde=None):
     """
     Retorna la siguiente fecha hábil desde una fecha dada.
-    Si no se provee fecha, usa la fecha de inicio del calendario.
+    Si no se provee fecha, usa el día siguiente a la fecha actual.
     """
     if desde is None:
-        desde = FECHA_INICIO
+        desde = _fecha_inicio_dinamica()
     actual = desde
     while actual <= FECHA_FIN:
         if es_habil(actual):
@@ -160,12 +175,92 @@ def proxima_cita():
     }
 
 
+def obtener_siguiente_cita_disponible(horas_ocupadas_fn=None):
+    """
+    Retorna la siguiente cita disponible consultando las horas ya ocupadas.
+    Siempre busca a partir del día siguiente a la fecha actual.
+
+    horas_ocupadas_fn: callable(fecha_str) -> list[str] de horas ocupadas para esa fecha.
+                       Ejemplo: ["08:00", "10:00"] si esas horas ya están agendadas.
+
+    Retorna dict con:
+      - fecha: date object
+      - hora: str ("08:00", "09:00", etc.)
+      - fecha_str: str ("2026-09-09")
+      - mensaje_fecha: str ("Miércoles 9 de septiembre")
+      - mensaje_completo: str ("Miércoles 9 de septiembre - 8:00 a.m.")
+    o None si no hay disponibilidad.
+    """
+    manana = _fecha_inicio_dinamica()
+    actual = manana
+
+    while actual <= FECHA_FIN:
+        if es_habil(actual):
+            horas_ocupadas = horas_ocupadas_fn(actual.isoformat()) if horas_ocupadas_fn else []
+            for hora in HORARIOS_DISPONIBLES:
+                if hora not in horas_ocupadas:
+                    return {
+                        "fecha": actual,
+                        "hora": hora,
+                        "fecha_str": actual.isoformat(),
+                        "mensaje_fecha": formatear_fecha(actual),
+                        "mensaje_completo": formatear_fecha_completa(actual, hora),
+                    }
+        actual += timedelta(days=1)
+
+    return None
+
+
+def obtener_cita_despues_de(fecha_despues, hora_despues, horas_ocupadas_fn=None):
+    """
+    Retorna la siguiente cita disponible DESPUÉS de una fecha y hora específicas.
+    Útil cuando el usuario rechaza la primera opción y se ofrece la siguiente.
+
+    fecha_despues: str en formato 'YYYY-MM-DD'
+    hora_despues: str en formato 'HH:MM'
+    horas_ocupadas_fn: callable(fecha_str) -> list[str] de horas ocupadas.
+
+    Retorna dict con fecha, hora, fecha_str, mensaje_fecha, mensaje_completo.
+    """
+    try:
+        fecha_base = date.fromisoformat(fecha_despues)
+    except (ValueError, TypeError):
+        # Si hay error, empezar desde mañana
+        fecha_base = _fecha_inicio_dinamica()
+
+    actual = fecha_base
+    encontre_posicion = False
+
+    while actual <= FECHA_FIN:
+        if es_habil(actual):
+            horas_ocupadas = horas_ocupadas_fn(actual.isoformat()) if horas_ocupadas_fn else []
+            for hora in HORARIOS_DISPONIBLES:
+                if not encontre_posicion:
+                    # Primero, encontrar la posición DESPUÉS de la hora dada
+                    if actual > fecha_base or (actual == fecha_base and hora > hora_despues):
+                        encontre_posicion = True
+                    else:
+                        continue
+
+                if hora not in horas_ocupadas:
+                    return {
+                        "fecha": actual,
+                        "hora": hora,
+                        "fecha_str": actual.isoformat(),
+                        "mensaje_fecha": formatear_fecha(actual),
+                        "mensaje_completo": formatear_fecha_completa(actual, hora),
+                    }
+        actual += timedelta(days=1)
+
+    return None
+
+
 def citas_disponibles_cantidad(dias=5):
     """
     Retorna las próximas N fechas disponibles con sus horarios.
     """
     resultados = []
-    actual = FECHA_INICIO
+    actual = _fecha_inicio_dinamica()
     while len(resultados) < dias and actual <= FECHA_FIN:
         if es_habil(actual):
             for hora in HORARIOS_DISPONIBLES:

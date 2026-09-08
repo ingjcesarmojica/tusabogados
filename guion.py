@@ -123,7 +123,7 @@ PASOS = {
     "confirmacion_cita_opcion": {
         "id": "confirmacion_cita_opcion",
         "siguiente": "manejo_post_cita",
-        "mensaje": "📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
+        "mensaje": "📅 Fecha: {fecha_cita}\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {
@@ -193,7 +193,7 @@ PASOS = {
     "alternativa_horario": {
         "id": "alternativa_horario",
         "siguiente": "confirmacion_cita_opcion",
-        "mensaje": "Queda registrada tu cita.\n\n📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado tu caso de {categoria}. Un abogado se comunicará contigo en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
+        "mensaje": "Queda registrada tu cita.\n\n📅 Fecha: {fecha_cita}\n📧 Confirmación enviada a: {correo}\n📱 Teléfono de contacto: {telefono}\n\nHe revisado tu caso de {categoria}. Un abogado se comunicará contigo en la fecha acordada.\n\n¿Hay algo más en lo que pueda ayudarte? Por favor, seleccione una de las opciones.",
         "validar": None,
         "botones": [
             {

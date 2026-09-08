@@ -19,6 +19,12 @@ from database import (
     guardar_usuario,
     guardar_cita,
     guardar_consulta_adicional,
+    obtener_citas_por_fecha,
+)
+from calendario import (
+    obtener_siguiente_cita_disponible,
+    obtener_cita_despues_de,
+    formatear_fecha_completa,
 )
 
 chat = SimpleNamespace()
@@ -385,6 +391,8 @@ def limpiar_estado_chat():
         "case_description",
         "case_subtype",
         "appointment_time",
+        "appointment_fecha_str",
+        "appointment_hora",
         "user_role",
         "case_category",
         "paso_actual",
@@ -393,6 +401,23 @@ def limpiar_estado_chat():
     for attr in attrs:
         if hasattr(chat, attr):
             delattr(chat, attr)
+
+
+def get_next_appointment():
+    """
+    Obtiene la siguiente cita disponible de forma dinámica.
+    Consulta la base de datos para saber qué horarios ya están ocupados.
+    Siempre busca a partir del día siguiente a la fecha actual.
+    Retorna dict con fecha, hora, fecha_str, mensaje_fecha, mensaje_completo.
+    """
+    result = obtener_siguiente_cita_disponible(
+        horas_ocupadas_fn=obtener_citas_por_fecha
+    )
+    if result:
+        return result
+    # Fallback: si no hay disponibilidad (improbable), usar la función básica
+    from calendario import proxima_cita
+    return proxima_cita()
 
 
 def obtener_estado_chat():
@@ -412,6 +437,7 @@ def obtener_estado_chat():
         "case_description": getattr(chat, "case_description", ""),
         "case_subtype": getattr(chat, "case_subtype", ""),
         "appointment_time": getattr(chat, "appointment_time", ""),
+        "fecha_cita": getattr(chat, "appointment_time", ""),
         "user_role": user_role,
         "rol": user_role,
         "case_category": case_category,
@@ -734,7 +760,11 @@ def chat():
         if accion_boton:
             if accion_boton == "aceptar_cita":
                 chat.paso_actual = "propuesta_horario"
-                response = f"Perfecto, {getattr(chat, 'user_name', 'usuario')}. Te propongo el próximo Lunes 29 de Septiembre a las 10:30 de la mañana. ¿Te parece bien esa fecha y hora?"
+                cita_disp = get_next_appointment()
+                chat.appointment_time = cita_disp["mensaje_completo"]
+                chat.appointment_fecha_str = cita_disp["fecha_str"]
+                chat.appointment_hora = cita_disp["hora"]
+                response = f"Perfecto, {getattr(chat, 'user_name', 'usuario')}. Te propongo {cita_disp['mensaje_completo']}. ¿Te parece bien esa fecha y hora?"
                 buttons = [
                     {
                         "texto": "Sí, confirmo",
@@ -876,7 +906,10 @@ def chat():
                 )
 
             if accion_boton == "confirmar":
-                chat.appointment_time = "Lunes 29 de Septiembre - 10:30 am"
+                cita_disp = get_next_appointment()
+                chat.appointment_time = cita_disp["mensaje_completo"]
+                chat.appointment_fecha_str = cita_disp["fecha_str"]
+                chat.appointment_hora = cita_disp["hora"]
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
                 email = getattr(chat, "user_email", "")
@@ -904,12 +937,12 @@ def chat():
                         "telefono": phone,
                         "categoria": category,
                         "descripcion_caso": description,
-                        "fecha_cita": "2026-09-29",
-                        "hora_cita": "10:30",
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
                         "estado": "confirmada",
                     }
                 )
-                response = f"""📅 Fecha: Lunes 29 de septiembre - 10:30 a.m.
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
@@ -948,13 +981,50 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 )
 
             if accion_boton == "otra_fecha":
-                chat.appointment_time = "Miércoles 1 de Octubre - 3:30 pm"
+                # Buscar la siguiente cita DESPUÉS de la que se ofreció primero
+                fecha_actual = getattr(chat, "appointment_fecha_str", None)
+                hora_actual = getattr(chat, "appointment_hora", None)
+                if fecha_actual and hora_actual:
+                    cita_disp = obtener_cita_despues_de(
+                        fecha_actual, hora_actual,
+                        horas_ocupadas_fn=obtener_citas_por_fecha
+                    )
+                else:
+                    cita_disp = get_next_appointment()
+
+                if cita_disp is None:
+                    response = "Lo siento, no hay más citas disponibles en este momento. Por favor, intenta más tarde."
+                    return jsonify({
+                        "response": response,
+                        "end_call": False,
+                        "buttons": [{"texto": "Volver al inicio", "valor": "reiniciar", "descripcion": ""}],
+                        "step": "sin_disponibilidad",
+                    })
+
+                chat.appointment_time = cita_disp["mensaje_completo"]
+                chat.appointment_fecha_str = cita_disp["fecha_str"]
+                chat.appointment_hora = cita_disp["hora"]
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
                 email = getattr(chat, "user_email", "")
                 phone = getattr(chat, "user_phone", "")
                 category = getattr(chat, "case_category", "")
-                response = f"""📅 Fecha: Miércoles 1 de octubre - 3:30 p.m.
+
+                # Guardar la nueva cita en la base de datos
+                guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": getattr(chat, "case_description", ""),
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
+                        "estado": "confirmada",
+                    }
+                )
+
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
@@ -1197,7 +1267,10 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
             if accion_boton == "confirmar" or any(
                 w in message_lower for w in ["sí", "si", "ok", "confirmo", "de acuerdo"]
             ):
-                chat.appointment_time = "Lunes 29 de Septiembre - 10:30 am"
+                cita_disp = get_next_appointment()
+                chat.appointment_time = cita_disp["mensaje_completo"]
+                chat.appointment_fecha_str = cita_disp["fecha_str"]
+                chat.appointment_hora = cita_disp["hora"]
                 chat.paso_actual = "manejo_post_cita"
                 name = getattr(chat, "user_name", "")
                 email = getattr(chat, "user_email", "")
@@ -1205,9 +1278,6 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 category = getattr(chat, "case_category", "")
                 description = getattr(chat, "case_description", "")
                 role = getattr(chat, "user_role", "")
-                appointment_date = getattr(
-                    chat, "appointment_time", "Lunes 29 de septiembre - 10:30 a.m."
-                )
 
                 guardar_usuario(
                     {
@@ -1228,12 +1298,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "telefono": phone,
                         "categoria": category,
                         "descripcion_caso": description,
-                        "fecha_cita": "2026-09-29",
-                        "hora_cita": "10:30",
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
                         "estado": "confirmada",
                     }
                 )
-                response = f"""📅 Fecha: {appointment_date}
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
@@ -1274,16 +1344,16 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 )
 
         if paso_actual_id == "confirmacion_cita_opcion":
-            chat.appointment_time = (
-                chat.appointment_time or "Lunes 29 de Septiembre - 10:30 am"
-            )
+            # Si no tiene cita asignada, asignar la siguiente disponible
+            if not getattr(chat, "appointment_time", None):
+                cita_disp = get_next_appointment()
+                chat.appointment_time = cita_disp["mensaje_completo"]
+                chat.appointment_fecha_str = cita_disp["fecha_str"]
+                chat.appointment_hora = cita_disp["hora"]
             name = getattr(chat, "user_name", "")
             email = getattr(chat, "user_email", "")
             phone = getattr(chat, "user_phone", "")
-            category = getattr(chat, "case_category", "")
-            appointment_date = getattr(
-                chat, "appointment_time", "Lunes 29 de septiembre - 10:30 a.m."
-            )
+            appointment_date = getattr(chat, "appointment_time", "")
             response = f"""📅 Fecha: {appointment_date}
 📧 Confirmación enviada a: {email}
 📱 Teléfono de contacto: {phone}

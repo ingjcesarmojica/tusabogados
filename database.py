@@ -179,6 +179,32 @@ def guardar_consulta_adicional(datos):
         return False, str(e)
 
 
+def obtener_citas_por_fecha(fecha_str):
+    """
+    Obtiene todas las horas ocupadas para una fecha específica.
+    fecha_str: string en formato 'YYYY-MM-DD' (ej: '2026-09-09').
+    Retorna lista de horas ocupadas como strings ('08:00', '09:00', etc.).
+    """
+    sb = get_supabase()
+    if sb is None:
+        return []
+
+    try:
+        result = (
+            sb.table("citas")
+            .select("hora_cita")
+            .eq("fecha_cita", fecha_str)
+            .in_("estado", ["confirmada", "reprogramada"])
+            .execute()
+        )
+        if hasattr(result, "data") and result.data:
+            return [c["hora_cita"] for c in result.data]
+        return []
+    except Exception as e:
+        logger.error(f"Error obteniendo citas por fecha {fecha_str}: {e}")
+        return []
+
+
 def obtener_usuario(email):
     """
     Obtiene un usuario por email.
