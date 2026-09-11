@@ -1870,52 +1870,45 @@ def save_conversation(response, paso_actual, user_message=""):
         app.logger.error(f"Error saving conversation: {e}")
 
 
+@app.route("/api/test-email", methods=["POST"])
 @app.route("/api/test-smtp", methods=["POST"])
-def test_smtp():
-    """Endpoint para probar la conexion SMTP de forma sincrona."""
+def test_email():
+    """Endpoint para probar el envio de correo via Resend API."""
     from notificaciones import (
-        _smtp_configurado,
-        _enviar_correo_smtp,
-        SMTP_HOST,
-        SMTP_PORT,
-        SMTP_USE_TLS,
-        SMTP_USER,
-        SMTP_FROM_NAME,
+        _email_configurado,
+        _enviar_correo,
+        RESEND_API_KEY,
+        RESEND_FROM,
     )
 
-    app.logger.info("=== TEST SMTP INICIADO ===")
-    app.logger.info(f"[SMTP] Host: {SMTP_HOST}:{SMTP_PORT}")
-    app.logger.info(f"[SMTP] User: {SMTP_USER}")
-    app.logger.info(f"[SMTP] From: {SMTP_FROM_NAME}")
-    app.logger.info(f"[SMTP] TLS: {SMTP_USE_TLS}")
+    app.logger.info("=== TEST EMAIL INICIADO ===")
+    app.logger.info(f"[EMAIL] Provider: Resend")
+    app.logger.info(f"[EMAIL] From: {RESEND_FROM}")
 
-    if not _smtp_configurado():
+    if not _email_configurado():
         return jsonify({
             "ok": False,
-            "error": "SMTP no configurado. Faltan variables SMTP_HOST, SMTP_USER o SMTP_PASSWORD."
+            "error": "RESEND_API_KEY no configurada."
         }), 400
 
     data = request.get_json(silent=True) or {}
-    destinatario = data.get("email", SMTP_USER)
+    destinatario = data.get("email", "ingjcesarmojica@gmail.com")
 
     html = (
         "<h2>Prueba de correo - TusAbogados.com</h2>"
-        "<p>Si ves este correo, el SMTP esta funcionando correctamente.</p>"
+        "<p>Si ves este correo, Resend API esta funcionando correctamente.</p>"
         "<p><strong>Fecha:</strong> " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "</p>"
     )
-    texto = "Prueba de correo - TusAbogados.com\nSMTP funcionando correctamente."
 
-    app.logger.info(f"[SMTP] Enviando prueba a: {destinatario}")
-    resultado = _enviar_correo_smtp(destinatario, "Prueba SMTP - TusAbogados.com", html, texto)
-    app.logger.info(f"[SMTP] Resultado: {resultado}")
+    app.logger.info(f"[EMAIL] Enviando prueba a: {destinatario}")
+    resultado = _enviar_correo(destinatario, "Prueba - TusAbogados.com", html)
+    app.logger.info(f"[EMAIL] Resultado: {resultado}")
 
     return jsonify({
         "ok": resultado,
         "email": destinatario,
-        "smtp_host": SMTP_HOST,
-        "smtp_port": SMTP_PORT,
-        "smtp_tls": SMTP_USE_TLS,
-        "smtp_user": SMTP_USER,
+        "provider": "resend",
+        "from": RESEND_FROM,
     })
 
 

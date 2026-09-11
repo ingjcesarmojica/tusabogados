@@ -1,113 +1,117 @@
-"""
+﻿"""
 Notificaciones - TusAbogados.com
-Envío de correos de confirmación y recordatorio de citas vía SMTP.
-Programación de recordatorios 15 minutos antes de cada cita.
+Envio de correos de confirmacion y recordatorio de citas via Resend API.
+Programacion de recordatorios 15 minutos antes de cada cita.
 """
 
 import os
 import uuid
 import random
 import logging
-import smtplib
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests as http_requests
 from datetime import datetime, timedelta
 from string import Template
 
 logger = logging.getLogger(__name__)
 
-# ── Configuración SMTP ───────────────────────────────────────────────
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "TusAbogados.com")
-SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
+# â”€â”€ Configuracion Resend API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM = os.environ.get(
+    "RESEND_FROM", "TusAbogados.com <onboarding@resend.dev>"
+)
+EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "resend")
 
-# ── URL del agente de voz ────────────────────────────────────────────
+# â”€â”€ URL del agente de voz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 AGENTE_VOZ_BASE_URL = os.environ.get(
     "AGENTE_VOZ_BASE_URL", "https://agentcall-rkz3.onrender.com/"
 ).rstrip("/")
 
-# ── WhatsApp API (placeholder) ───────────────────────────────────────
+# â”€â”€ WhatsApp API (placeholder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 WHATSAPP_API_URL = os.environ.get("WHATSAPP_API_URL", "")
 WHATSAPP_API_TOKEN = os.environ.get("WHATSAPP_API_TOKEN", "")
 
-# ── Recordatorio: minutos antes de la cita ───────────────────────────
+# â”€â”€ Recordatorio: minutos antes de la cita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 MINUTOS_RECORDATORIO = int(os.environ.get("MINUTOS_RECORDATORIO", "15"))
 
-# ── Almacén de timers activos ────────────────────────────────────────
+# â”€â”€ Almacen de timers activos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _timers_activos = {}
 
 
 def generar_codigo_acceso():
-    """Genera un código único de 3 dígitos (100-999)."""
+    """Genera un codigo unico de 3 digitos (100-999)."""
     return str(random.randint(100, 999))
 
 
 def generar_url_agente_voz():
-    """Genera una URL única para el agente de voz con un token UUID."""
+    """Genera una URL unica para el agente de voz con un token UUID."""
     token = uuid.uuid4().hex
     return f"{AGENTE_VOZ_BASE_URL}/cita/{token}", token
 
 
-def _smtp_configurado():
-    """Verifica que las variables SMTP estén configuradas."""
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
+def _email_configurado():
+    """Verifica que la API de Resend este configurada."""
+    if not RESEND_API_KEY:
         logger.warning(
-            "SMTP no configurado (falta SMTP_HOST, SMTP_USER o SMTP_PASSWORD). "
-            "No se enviarán correos."
+            "RESEND_API_KEY no configurada. No se enviaran correos."
         )
         return False
     return True
 
 
-def _enviar_correo_smtp(destinatario, asunto, html_body, texto_plano=""):
-    """Envía un correo electrónico vía SMTP."""
-    if not _smtp_configurado():
-        logger.warning(f"[SMTP DESHABILITADO] Correo a {destinatario}: {asunto}")
+def _enviar_correo(destinatario, asunto, html_body, texto_plano=""):
+    """Envia un correo electronico via Resend API."""
+    if not _email_configurado():
+        logger.warning(
+            f"[EMAIL DESHABILITADO] Correo a {destinatario}: {asunto}"
+        )
         return False
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_USER}>"
-        msg["To"] = destinatario
-        msg["Subject"] = asunto
+        logger.info(
+            f"[RESEND] Enviando correo a {destinatario}..."
+        )
 
-        if texto_plano:
-            msg.attach(MIMEText(texto_plano, "plain", "utf-8"))
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        payload = {
+            "from": RESEND_FROM,
+            "to": [destinatario],
+            "subject": asunto,
+            "html": html_body,
+        }
 
-        logger.info(f"[SMTP] Conectando a {SMTP_HOST}:{SMTP_PORT} (TLS={SMTP_USE_TLS})...")
-        if SMTP_USE_TLS:
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
+        headers = {
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        response = http_requests.post(
+            "https://api.resend.com/emails",
+            json=payload,
+            headers=headers,
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            logger.info(
+                f"[RESEND] OK - Correo enviado a {destinatario} "
+                f"(id: {data.get('id', 'N/A')})"
+            )
+            return True
         else:
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
+            logger.error(
+                f"[RESEND] Error {response.status_code}: {response.text}"
+            )
+            return False
 
-        logger.info("[SMTP] Conexion OK, autenticando...")
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        logger.info("[SMTP] Autenticacion OK, enviando...")
-        server.sendmail(SMTP_USER, [destinatario], msg.as_string())
-        server.quit()
-
-        logger.info(f"✅ Correo enviado a {destinatario}: {asunto}")
-        return True
-
-    except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"❌ Error de autenticación SMTP: {e}. Verifica SMTP_USER y SMTP_PASSWORD.")
-        return False
-    except smtplib.SMTPConnectError as e:
-        logger.error(f"❌ Error de conexión SMTP a {SMTP_HOST}:{SMTP_PORT}: {e}")
-        return False
-    except TimeoutError:
-        logger.error(f"❌ Timeout conectando a SMTP {SMTP_HOST}:{SMTP_PORT}. Puerto bloqueado?")
+    except http_requests.Timeout:
+        logger.error("[RESEND] Timeout conectando a api.resend.com")
         return False
     except Exception as e:
-        logger.error(f"❌ Error enviando correo a {destinatario}: {type(e).__name__}: {e}")
+        logger.error(
+            f"[RESEND] Error enviando correo a {destinatario}: "
+            f"{type(e).__name__}: {e}"
+        )
         return False
 
 
@@ -133,8 +137,8 @@ def _formatear_fecha_display(fecha_cita, hora_cita):
     try:
         fecha_dt = datetime.strptime(f"{fecha_cita} {hora_cita}", "%Y-%m-%d %H:%M")
         dias_es = {
-            "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles",
-            "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado",
+            "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "MiÃ©rcoles",
+            "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "SÃ¡bado",
             "Sunday": "Domingo",
         }
         meses_es = {
@@ -155,11 +159,11 @@ def _formatear_fecha_display(fecha_cita, hora_cita):
         return fecha_cita, hora_cita
 
 
-# ── Funciones públicas ───────────────────────────────────────────────
+# â”€â”€ Funciones pÃºblicas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def enviar_correo_confirmacion(datos_cita):
     """
-    Envía el correo de confirmación de cita con URL única y código de acceso.
+    EnvÃ­a el correo de confirmaciÃ³n de cita con URL Ãºnica y cÃ³digo de acceso.
 
     datos_cita: dict con campos:
         nombre, email, fecha_cita, hora_cita, categoria,
@@ -174,7 +178,7 @@ def enviar_correo_confirmacion(datos_cita):
     url_voz = datos_cita.get("url_agente_voz", "")
 
     if not email:
-        logger.warning("No se puede enviar correo: email vacío")
+        logger.warning("No se puede enviar correo: email vacÃ­o")
         return False
 
     fecha_display, hora_display = _formatear_fecha_display(fecha_cita, hora_cita)
@@ -192,44 +196,44 @@ def enviar_correo_confirmacion(datos_cita):
     html_body = _plantilla_html("email_confirmacion_cita.html", variables)
     if html_body is None:
         html_body = (
-            f"<h2>Confirmación de Cita - TusAbogados.com</h2>"
+            f"<h2>ConfirmaciÃ³n de Cita - TusAbogados.com</h2>"
             f"<p>Hola <strong>{nombre}</strong>,</p>"
             f"<p>Tu cita ha sido registrada exitosamente:</p>"
             f"<ul>"
-            f"<li>📅 <strong>Fecha:</strong> {fecha_display}</li>"
-            f"<li>🕐 <strong>Hora:</strong> {hora_display}</li>"
-            f"<li>📋 <strong>Categoría:</strong> {categoria}</li>"
+            f"<li>ðŸ“… <strong>Fecha:</strong> {fecha_display}</li>"
+            f"<li>ðŸ• <strong>Hora:</strong> {hora_display}</li>"
+            f"<li>ðŸ“‹ <strong>CategorÃ­a:</strong> {categoria}</li>"
             f"</ul>"
-            f"<p><strong>Código de acceso:</strong> "
+            f"<p><strong>CÃ³digo de acceso:</strong> "
             f"<span style='font-size:24px;color:#1a73e8;font-weight:bold;'>"
             f"{codigo}</span></p>"
-            f"<p><strong>Link para tu asesoría:</strong></p>"
+            f"<p><strong>Link para tu asesorÃ­a:</strong></p>"
             f"<p><a href='{url_voz}' style='background-color:#1a73e8;color:white;"
             f"padding:12px 24px;text-decoration:none;border-radius:6px;"
-            f"display:inline-block;'>Entrar a la asesoría</a></p>"
-            f"<p><small>El link es de uso único. 15 minutos antes de tu cita "
-            f"recibirás un recordatorio.</small></p>"
-            f"<hr><p><small>© {datetime.now().year} TusAbogados.com</small></p>"
+            f"display:inline-block;'>Entrar a la asesorÃ­a</a></p>"
+            f"<p><small>El link es de uso Ãºnico. 15 minutos antes de tu cita "
+            f"recibirÃ¡s un recordatorio.</small></p>"
+            f"<hr><p><small>Â© {datetime.now().year} TusAbogados.com</small></p>"
         )
 
     texto_plano = (
-        f"Confirmación de Cita - TusAbogados.com\n\n"
+        f"ConfirmaciÃ³n de Cita - TusAbogados.com\n\n"
         f"Hola {nombre},\n\n"
         f"Tu cita ha sido registrada:\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n"
-        f"Categoría: {categoria}\n\n"
-        f"Código de acceso: {codigo}\nLink: {url_voz}\n\n"
-        f"El link es de uso único. Recibirás un recordatorio 15 min antes.\n\n"
-        f"© {datetime.now().year} TusAbogados.com"
+        f"CategorÃ­a: {categoria}\n\n"
+        f"CÃ³digo de acceso: {codigo}\nLink: {url_voz}\n\n"
+        f"El link es de uso Ãºnico. RecibirÃ¡s un recordatorio 15 min antes.\n\n"
+        f"Â© {datetime.now().year} TusAbogados.com"
     )
 
-    asunto = f"Confirmación de tu cita - TusAbogados.com | {fecha_display}"
-    return _enviar_correo_smtp(email, asunto, html_body, texto_plano)
+    asunto = f"ConfirmaciÃ³n de tu cita - TusAbogados.com | {fecha_display}"
+    return _enviar_correo(email, asunto, html_body, texto_plano)
 
 
 def enviar_correo_recordatorio(datos_cita):
     """
-    Envía el correo de recordatorio 15 minutos antes de la cita.
+    EnvÃ­a el correo de recordatorio 15 minutos antes de la cita.
     """
     nombre = datos_cita.get("nombre", "")
     email = datos_cita.get("email", "")
@@ -241,7 +245,7 @@ def enviar_correo_recordatorio(datos_cita):
     telefono = datos_cita.get("telefono", "")
 
     if not email:
-        logger.warning("No se puede enviar recordatorio: email vacío")
+        logger.warning("No se puede enviar recordatorio: email vacÃ­o")
         return False
 
     fecha_display, hora_display = _formatear_fecha_display(fecha_cita, hora_cita)
@@ -262,36 +266,36 @@ def enviar_correo_recordatorio(datos_cita):
         html_body = (
             f"<h2>Recordatorio de Cita - TusAbogados.com</h2>"
             f"<p>Hola <strong>{nombre}</strong>,</p>"
-            f"<p>Tu asesoría legal comienza en "
+            f"<p>Tu asesorÃ­a legal comienza en "
             f"<strong>{MINUTOS_RECORDATORIO} minutos</strong>.</p>"
             f"<ul>"
-            f"<li>📅 <strong>Fecha:</strong> {fecha_display}</li>"
-            f"<li>🕐 <strong>Hora:</strong> {hora_display}</li>"
+            f"<li>ðŸ“… <strong>Fecha:</strong> {fecha_display}</li>"
+            f"<li>ðŸ• <strong>Hora:</strong> {hora_display}</li>"
             f"</ul>"
-            f"<p><strong>Código de acceso:</strong> "
+            f"<p><strong>CÃ³digo de acceso:</strong> "
             f"<span style='font-size:28px;color:#d93025;font-weight:bold;'>"
             f"{codigo}</span></p>"
             f"<p><a href='{url_voz}' style='background-color:#d93025;color:white;"
             f"padding:14px 28px;text-decoration:none;border-radius:6px;"
-            f"font-size:18px;display:inline-block;'>📞 Entrar ahora</a></p>"
-            f"<hr><p><small>© {datetime.now().year} TusAbogados.com</small></p>"
+            f"font-size:18px;display:inline-block;'>ðŸ“ž Entrar ahora</a></p>"
+            f"<hr><p><small>Â© {datetime.now().year} TusAbogados.com</small></p>"
         )
 
     texto_plano = (
         f"Recordatorio de Cita - TusAbogados.com\n\n"
         f"Hola {nombre},\n\n"
-        f"Tu asesoría legal comienza en {MINUTOS_RECORDATORIO} minutos.\n"
+        f"Tu asesorÃ­a legal comienza en {MINUTOS_RECORDATORIO} minutos.\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n\n"
-        f"Código de acceso: {codigo}\nLink: {url_voz}\n\n"
-        f"© {datetime.now().year} TusAbogados.com"
+        f"CÃ³digo de acceso: {codigo}\nLink: {url_voz}\n\n"
+        f"Â© {datetime.now().year} TusAbogados.com"
     )
 
-    asunto = (f"Tu asesoría legal comienza en "
+    asunto = (f"Tu asesorÃ­a legal comienza en "
               f"{MINUTOS_RECORDATORIO} min | TusAbogados.com")
 
-    resultado_email = _enviar_correo_smtp(email, asunto, html_body, texto_plano)
+    resultado_email = _enviar_correo(email, asunto, html_body, texto_plano)
 
-    # También enviar por WhatsApp si está configurado
+    # TambiÃ©n enviar por WhatsApp si estÃ¡ configurado
     if telefono:
         enviar_whatsapp_recordatorio(
             telefono, nombre, fecha_display, hora_display, codigo, url_voz
@@ -303,8 +307,8 @@ def enviar_correo_recordatorio(datos_cita):
 def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
                                   codigo, url_voz):
     """
-    Envía recordatorio por WhatsApp.
-    Requiere configuración de API de WhatsApp (Twilio, Meta Business, etc.)
+    EnvÃ­a recordatorio por WhatsApp.
+    Requiere configuraciÃ³n de API de WhatsApp (Twilio, Meta Business, etc.)
     """
     if not WHATSAPP_API_URL or not WHATSAPP_API_TOKEN:
         logger.info(
@@ -315,13 +319,13 @@ def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
 
     mensaje = (
         f"Recordatorio - TusAbogados.com\n\n"
-        f"Hola {nombre}, tu asesoría legal comienza en "
+        f"Hola {nombre}, tu asesorÃ­a legal comienza en "
         f"{MINUTOS_RECORDATORIO} minutos.\n\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n\n"
-        f"Código de acceso: {codigo}\n\n"
-        f"Ingresa aquí: {url_voz}\n\n"
-        f"Un abogado especializado te atenderá por videollamada. "
-        f"Ten a mano tu código de 3 dígitos."
+        f"CÃ³digo de acceso: {codigo}\n\n"
+        f"Ingresa aquÃ­: {url_voz}\n\n"
+        f"Un abogado especializado te atenderÃ¡ por videollamada. "
+        f"Ten a mano tu cÃ³digo de 3 dÃ­gitos."
     )
 
     try:
@@ -344,7 +348,7 @@ def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
             return True
         else:
             logger.warning(
-                f"WhatsApp respondió {response.status_code}: {response.text}"
+                f"WhatsApp respondiÃ³ {response.status_code}: {response.text}"
             )
             return False
 
@@ -355,7 +359,7 @@ def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
 
 def programar_recordatorio(datos_cita):
     """
-    Programa el envío de recordatorio 15 minutos antes de la cita.
+    Programa el envÃ­o de recordatorio 15 minutos antes de la cita.
 
     datos_cita: dict con campos:
         fecha_cita, hora_cita, nombre, email, telefono,
@@ -365,7 +369,7 @@ def programar_recordatorio(datos_cita):
     hora_cita = datos_cita.get("hora_cita", "")
 
     if not fecha_cita or not hora_cita:
-        logger.warning("No se puede programar recordatorio: fecha/hora vacía")
+        logger.warning("No se puede programar recordatorio: fecha/hora vacÃ­a")
         return False
 
     try:
@@ -385,7 +389,7 @@ def programar_recordatorio(datos_cita):
 
     if fecha_recordatorio <= ahora:
         logger.warning(
-            f"La fecha de recordatorio ya pasó ({fecha_recordatorio}). "
+            f"La fecha de recordatorio ya pasÃ³ ({fecha_recordatorio}). "
             f"No se programa para {datos_cita.get('email', '')}."
         )
         return False
@@ -432,7 +436,7 @@ def cancelar_recordatorio(cita_id):
 
 
 def recordatorios_pendientes():
-    """Retorna información sobre recordatorios activos."""
+    """Retorna informaciÃ³n sobre recordatorios activos."""
     return {
         cita_id: {
             "fecha_recordatorio": info["fecha_recordatorio"],
@@ -444,8 +448,8 @@ def recordatorios_pendientes():
 
 def iniciar_recordatorios_pendientes(citas_proximas):
     """
-    Al iniciar la aplicación, reprograma recordatorios para citas
-    que aún no han pasado.
+    Al iniciar la aplicaciÃ³n, reprograma recordatorios para citas
+    que aÃºn no han pasado.
 
     citas_proximas: lista de dicts con datos de citas de la BD
     """
