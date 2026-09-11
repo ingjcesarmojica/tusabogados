@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS citas (
     fecha_cita DATE NOT NULL,
     hora_cita TEXT NOT NULL,        -- '09:00', '10:30', etc.
     estado TEXT DEFAULT 'confirmada', -- 'confirmada', 'reprogramada', 'cancelada', 'completada'
+    codigo_acceso VARCHAR(3),       -- Código de 3 dígitos para agente de voz
+    url_token TEXT,                 -- Token UUID único para URL de agente de voz
+    url_agente_voz TEXT,            -- URL completa del agente de voz (uso único)
     notas TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -92,6 +95,12 @@ SELECT
     (SELECT COUNT(*) FROM citas WHERE estado = 'confirmada') AS citas_pendientes,
     (SELECT COUNT(*) FROM citas WHERE estado = 'completada') AS citas_completadas,
     (SELECT COUNT(*) FROM conversaciones) AS total_conversaciones;
+
+-- ── Migración: agregar columnas a citas (si la tabla ya existe) ─────
+-- Ejecutar solo si la tabla citas ya existía antes de esta actualización
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS codigo_acceso VARCHAR(3);
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS url_token TEXT;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS url_agente_voz TEXT;
 
 -- ================================================
 -- FIN DEL SCHEMA

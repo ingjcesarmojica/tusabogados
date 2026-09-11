@@ -94,6 +94,9 @@ def guardar_cita(datos):
             "fecha_cita": datos.get("fecha_cita", ""),
             "hora_cita": datos.get("hora_cita", ""),
             "estado": datos.get("estado", "confirmada"),
+            "codigo_acceso": datos.get("codigo_acceso", ""),
+            "url_token": datos.get("url_token", ""),
+            "url_agente_voz": datos.get("url_agente_voz", ""),
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -246,4 +249,49 @@ def obtener_citas_usuario(email):
         return []
     except Exception as e:
         logger.error(f"Error obteniendo citas: {e}")
+        return []
+
+
+def obtener_citas_proximas_para_recordatorio():
+    """
+    Obtiene todas las citas confirmadas de hoy y mañana que necesitan recordatorio.
+    Retorna lista de dicts con los campos necesarios para notificaciones.
+    """
+    sb = get_supabase()
+    if sb is None:
+        return []
+
+    try:
+        from datetime import date, timedelta
+        hoy = date.today().isoformat()
+        manana = (date.today() + timedelta(days=1)).isoformat()
+
+        result = (
+            sb.table("citas")
+            .select("id, usuario_email, usuario_nombre, usuario_telefono, "
+                    "categoria, fecha_cita, hora_cita, estado, "
+                    "codigo_acceso, url_agente_voz")
+            .in_("estado", ["confirmada", "reprogramada"])
+            .or_(f"fecha_cita.eq.{hoy},fecha_cita.eq.{manana}")
+            .execute()
+        )
+
+        if hasattr(result, "data") and result.data:
+            citas = []
+            for c in result.data:
+                citas.append({
+                    "cita_id": c.get("id", ""),
+                    "email": c.get("usuario_email", ""),
+                    "nombre": c.get("usuario_nombre", ""),
+                    "telefono": c.get("usuario_telefono", ""),
+                    "categoria": c.get("categoria", ""),
+                    "fecha_cita": c.get("fecha_cita", ""),
+                    "hora_cita": c.get("hora_cita", ""),
+                    "codigo_acceso": c.get("codigo_acceso", ""),
+                    "url_agente_voz": c.get("url_agente_voz", ""),
+                })
+            return citas
+        return []
+    except Exception as e:
+        logger.error(f"Error obteniendo citas próximas: {e}")
         return []

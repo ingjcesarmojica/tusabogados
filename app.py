@@ -20,11 +20,19 @@ from database import (
     guardar_cita,
     guardar_consulta_adicional,
     obtener_citas_por_fecha,
+    obtener_citas_proximas_para_recordatorio,
 )
 from calendario import (
     obtener_siguiente_cita_disponible,
     obtener_cita_despues_de,
     formatear_fecha_completa,
+)
+from notificaciones import (
+    generar_codigo_acceso,
+    generar_url_agente_voz,
+    enviar_correo_confirmacion,
+    programar_recordatorio,
+    iniciar_recordatorios_pendientes,
 )
 
 chat = SimpleNamespace()
@@ -918,6 +926,10 @@ def chat():
                 description = getattr(chat, "case_description", "")
                 role = getattr(chat, "user_role", "")
 
+                # Generar código y URL únicos para el agente de voz
+                codigo_acceso = generar_codigo_acceso()
+                url_agente_voz, url_token = generar_url_agente_voz()
+
                 guardar_usuario(
                     {
                         "nombre": name,
@@ -930,7 +942,7 @@ def chat():
                         "paso_actual": "confirmacion_cita",
                     }
                 )
-                guardar_cita(
+                exito_cita, cita_id = guardar_cita(
                     {
                         "email": email,
                         "nombre": name,
@@ -940,8 +952,35 @@ def chat():
                         "fecha_cita": cita_disp["fecha_str"],
                         "hora_cita": cita_disp["hora"],
                         "estado": "confirmada",
+                        "codigo_acceso": codigo_acceso,
+                        "url_token": url_token,
+                        "url_agente_voz": url_agente_voz,
                     }
                 )
+
+                # Enviar correo de confirmación y programar recordatorio
+                datos_notif = {
+                    "cita_id": cita_id or "pending",
+                    "nombre": name,
+                    "email": email,
+                    "telefono": phone,
+                    "categoria": category,
+                    "fecha_cita": cita_disp["fecha_str"],
+                    "hora_cita": cita_disp["hora"],
+                    "codigo_acceso": codigo_acceso,
+                    "url_agente_voz": url_agente_voz,
+                }
+                try:
+                    import threading as _thr
+                    _thr.Thread(
+                        target=enviar_correo_confirmacion,
+                        args=(datos_notif,),
+                        daemon=True,
+                    ).start()
+                    programar_recordatorio(datos_notif)
+                except Exception as e:
+                    app.logger.error(f"Error enviando notificación: {e}")
+
                 response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
@@ -1010,8 +1049,12 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 phone = getattr(chat, "user_phone", "")
                 category = getattr(chat, "case_category", "")
 
+                # Generar código y URL únicos para el agente de voz
+                codigo_acceso = generar_codigo_acceso()
+                url_agente_voz, url_token = generar_url_agente_voz()
+
                 # Guardar la nueva cita en la base de datos
-                guardar_cita(
+                exito_cita, cita_id = guardar_cita(
                     {
                         "email": email,
                         "nombre": name,
@@ -1021,8 +1064,34 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                         "fecha_cita": cita_disp["fecha_str"],
                         "hora_cita": cita_disp["hora"],
                         "estado": "confirmada",
+                        "codigo_acceso": codigo_acceso,
+                        "url_token": url_token,
+                        "url_agente_voz": url_agente_voz,
                     }
                 )
+
+                # Enviar correo de confirmación y programar recordatorio
+                datos_notif = {
+                    "cita_id": cita_id or "pending",
+                    "nombre": name,
+                    "email": email,
+                    "telefono": phone,
+                    "categoria": category,
+                    "fecha_cita": cita_disp["fecha_str"],
+                    "hora_cita": cita_disp["hora"],
+                    "codigo_acceso": codigo_acceso,
+                    "url_agente_voz": url_agente_voz,
+                }
+                try:
+                    import threading as _thr
+                    _thr.Thread(
+                        target=enviar_correo_confirmacion,
+                        args=(datos_notif,),
+                        daemon=True,
+                    ).start()
+                    programar_recordatorio(datos_notif)
+                except Exception as e:
+                    app.logger.error(f"Error enviando notificación: {e}")
 
                 response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
@@ -1350,10 +1419,60 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 chat.appointment_time = cita_disp["mensaje_completo"]
                 chat.appointment_fecha_str = cita_disp["fecha_str"]
                 chat.appointment_hora = cita_disp["hora"]
+
+            # Generar código y URL si no existen
+            if not getattr(chat, "codigo_acceso", None):
+                chat.codigo_acceso = generar_codigo_acceso()
+                chat.url_agente_voz, chat.url_token = generar_url_agente_voz()
+
             name = getattr(chat, "user_name", "")
             email = getattr(chat, "user_email", "")
             phone = getattr(chat, "user_phone", "")
             appointment_date = getattr(chat, "appointment_time", "")
+
+            # Guardar la cita en la BD
+            category = getattr(chat, "case_category", "")
+            fecha_str = getattr(chat, "appointment_fecha_str", "")
+            hora_str = getattr(chat, "appointment_hora", "")
+            exito_cita, cita_id = guardar_cita(
+                {
+                    "email": email,
+                    "nombre": name,
+                    "telefono": phone,
+                    "categoria": category,
+                    "descripcion_caso": getattr(chat, "case_description", ""),
+                    "fecha_cita": fecha_str,
+                    "hora_cita": hora_str,
+                    "estado": "confirmada",
+                    "codigo_acceso": chat.codigo_acceso,
+                    "url_token": chat.url_token,
+                    "url_agente_voz": chat.url_agente_voz,
+                }
+            )
+
+            # Enviar correo y programar recordatorio
+            datos_notif = {
+                "cita_id": cita_id or "pending",
+                "nombre": name,
+                "email": email,
+                "telefono": phone,
+                "categoria": category,
+                "fecha_cita": fecha_str,
+                "hora_cita": hora_str,
+                "codigo_acceso": chat.codigo_acceso,
+                "url_agente_voz": chat.url_agente_voz,
+            }
+            try:
+                import threading as _thr
+                _thr.Thread(
+                    target=enviar_correo_confirmacion,
+                    args=(datos_notif,),
+                    daemon=True,
+                ).start()
+                programar_recordatorio(datos_notif)
+            except Exception as e:
+                app.logger.error(f"Error enviando notificación: {e}")
+
             response = f"""📅 Fecha: {appointment_date}
 📧 Confirmación enviada a: {email}
 📱 Teléfono de contacto: {phone}
@@ -1761,5 +1880,16 @@ def save_conversation(response, paso_actual, user_message=""):
 
 
 if __name__ == "__main__":
+    # Reprogramar recordatorios pendientes al iniciar
+    try:
+        citas_pendientes = obtener_citas_proximas_para_recordatorio()
+        if citas_pendientes:
+            iniciar_recordatorios_pendientes(citas_pendientes)
+            app.logger.info(
+                f"Recordatorios reprogramados: {len(citas_pendientes)} citas"
+            )
+    except Exception as e:
+        app.logger.error(f"Error reprogramando recordatorios: {e}")
+
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
