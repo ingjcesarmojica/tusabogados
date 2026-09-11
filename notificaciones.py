@@ -79,6 +79,7 @@ def _enviar_correo_smtp(destinatario, asunto, html_body, texto_plano=""):
             msg.attach(MIMEText(texto_plano, "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
+        logger.info(f"[SMTP] Conectando a {SMTP_HOST}:{SMTP_PORT} (TLS={SMTP_USE_TLS})...")
         if SMTP_USE_TLS:
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30)
             server.ehlo()
@@ -87,15 +88,26 @@ def _enviar_correo_smtp(destinatario, asunto, html_body, texto_plano=""):
         else:
             server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30)
 
+        logger.info("[SMTP] Conexion OK, autenticando...")
         server.login(SMTP_USER, SMTP_PASSWORD)
+        logger.info("[SMTP] Autenticacion OK, enviando...")
         server.sendmail(SMTP_USER, [destinatario], msg.as_string())
         server.quit()
 
-        logger.info(f"Correo enviado a {destinatario}: {asunto}")
+        logger.info(f"✅ Correo enviado a {destinatario}: {asunto}")
         return True
 
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"❌ Error de autenticación SMTP: {e}. Verifica SMTP_USER y SMTP_PASSWORD.")
+        return False
+    except smtplib.SMTPConnectError as e:
+        logger.error(f"❌ Error de conexión SMTP a {SMTP_HOST}:{SMTP_PORT}: {e}")
+        return False
+    except TimeoutError:
+        logger.error(f"❌ Timeout conectando a SMTP {SMTP_HOST}:{SMTP_PORT}. Puerto bloqueado?")
+        return False
     except Exception as e:
-        logger.error(f"Error enviando correo a {destinatario}: {e}")
+        logger.error(f"❌ Error enviando correo a {destinatario}: {type(e).__name__}: {e}")
         return False
 
 

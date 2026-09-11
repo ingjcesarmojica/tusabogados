@@ -971,15 +971,12 @@ def chat():
                     "url_agente_voz": url_agente_voz,
                 }
                 try:
-                    import threading as _thr
-                    _thr.Thread(
-                        target=enviar_correo_confirmacion,
-                        args=(datos_notif,),
-                        daemon=True,
-                    ).start()
+                    app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                    resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                    app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
                     programar_recordatorio(datos_notif)
                 except Exception as e:
-                    app.logger.error(f"Error enviando notificación: {e}")
+                    app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
 
                 response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
@@ -1083,15 +1080,12 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     "url_agente_voz": url_agente_voz,
                 }
                 try:
-                    import threading as _thr
-                    _thr.Thread(
-                        target=enviar_correo_confirmacion,
-                        args=(datos_notif,),
-                        daemon=True,
-                    ).start()
+                    app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                    resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                    app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
                     programar_recordatorio(datos_notif)
                 except Exception as e:
-                    app.logger.error(f"Error enviando notificación: {e}")
+                    app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
 
                 response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
 📧 Correo de confirmación: {email}
@@ -1463,15 +1457,12 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                 "url_agente_voz": chat.url_agente_voz,
             }
             try:
-                import threading as _thr
-                _thr.Thread(
-                    target=enviar_correo_confirmacion,
-                    args=(datos_notif,),
-                    daemon=True,
-                ).start()
+                app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
                 programar_recordatorio(datos_notif)
             except Exception as e:
-                app.logger.error(f"Error enviando notificación: {e}")
+                app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
 
             response = f"""📅 Fecha: {appointment_date}
 📧 Confirmación enviada a: {email}
@@ -1877,6 +1868,55 @@ def save_conversation(response, paso_actual, user_message=""):
         app.logger.info(f"save_conversation resultado: {resultado}")
     except Exception as e:
         app.logger.error(f"Error saving conversation: {e}")
+
+
+@app.route("/api/test-smtp", methods=["POST"])
+def test_smtp():
+    """Endpoint para probar la conexion SMTP de forma sincrona."""
+    from notificaciones import (
+        _smtp_configurado,
+        _enviar_correo_smtp,
+        SMTP_HOST,
+        SMTP_PORT,
+        SMTP_USE_TLS,
+        SMTP_USER,
+        SMTP_FROM_NAME,
+    )
+
+    app.logger.info("=== TEST SMTP INICIADO ===")
+    app.logger.info(f"[SMTP] Host: {SMTP_HOST}:{SMTP_PORT}")
+    app.logger.info(f"[SMTP] User: {SMTP_USER}")
+    app.logger.info(f"[SMTP] From: {SMTP_FROM_NAME}")
+    app.logger.info(f"[SMTP] TLS: {SMTP_USE_TLS}")
+
+    if not _smtp_configurado():
+        return jsonify({
+            "ok": False,
+            "error": "SMTP no configurado. Faltan variables SMTP_HOST, SMTP_USER o SMTP_PASSWORD."
+        }), 400
+
+    data = request.get_json(silent=True) or {}
+    destinatario = data.get("email", SMTP_USER)
+
+    html = (
+        "<h2>Prueba de correo - TusAbogados.com</h2>"
+        "<p>Si ves este correo, el SMTP esta funcionando correctamente.</p>"
+        "<p><strong>Fecha:</strong> " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "</p>"
+    )
+    texto = "Prueba de correo - TusAbogados.com\nSMTP funcionando correctamente."
+
+    app.logger.info(f"[SMTP] Enviando prueba a: {destinatario}")
+    resultado = _enviar_correo_smtp(destinatario, "Prueba SMTP - TusAbogados.com", html, texto)
+    app.logger.info(f"[SMTP] Resultado: {resultado}")
+
+    return jsonify({
+        "ok": resultado,
+        "email": destinatario,
+        "smtp_host": SMTP_HOST,
+        "smtp_port": SMTP_PORT,
+        "smtp_tls": SMTP_USE_TLS,
+        "smtp_user": SMTP_USER,
+    })
 
 
 if __name__ == "__main__":
