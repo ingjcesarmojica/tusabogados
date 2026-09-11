@@ -24,7 +24,7 @@ EMAIL_PROVIDER = os.environ.get("EMAIL_PROVIDER", "resend")
 
 # â”€â”€ URL del agente de voz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 AGENTE_VOZ_BASE_URL = os.environ.get(
-    "AGENTE_VOZ_BASE_URL", "https://agentcall-rkz3.onrender.com/"
+    "AGENTE_VOZ_BASE_URL", "https://agentcall-et3l.onrender.com/"
 ).rstrip("/")
 
 # â”€â”€ WhatsApp API (placeholder) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
