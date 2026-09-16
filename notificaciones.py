@@ -136,8 +136,8 @@ def _formatear_fecha_display(fecha_cita, hora_cita):
     try:
         fecha_dt = datetime.strptime(f"{fecha_cita} {hora_cita}", "%Y-%m-%d %H:%M")
         dias_es = {
-            "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "MiÃ©rcoles",
-            "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "SÃ¡bado",
+            "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miércoles",
+            "Thursday": "Jueves", "Friday": "Viernes", "Saturday": "Sábado",
             "Sunday": "Domingo",
         }
         meses_es = {
@@ -158,11 +158,11 @@ def _formatear_fecha_display(fecha_cita, hora_cita):
         return fecha_cita, hora_cita
 
 
-# â”€â”€ Funciones pÃºblicas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â”€â”€ Funciones públicas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def enviar_correo_confirmacion(datos_cita):
     """
-    EnvÃ­a el correo de confirmaciÃ³n de cita con URL Ãºnica y cÃ³digo de acceso.
+    Envía el correo de confirmación de cita con URL única y código de acceso.
 
     datos_cita: dict con campos:
         nombre, email, fecha_cita, hora_cita, categoria,
@@ -177,7 +177,7 @@ def enviar_correo_confirmacion(datos_cita):
     url_voz = datos_cita.get("url_agente_voz", "")
 
     if not email:
-        logger.warning("No se puede enviar correo: email vacÃ­o")
+        logger.warning("No se puede enviar correo: email vacío")
         return False
 
     fecha_display, hora_display = _formatear_fecha_display(fecha_cita, hora_cita)
@@ -195,44 +195,44 @@ def enviar_correo_confirmacion(datos_cita):
     html_body = _plantilla_html("email_confirmacion_cita.html", variables)
     if html_body is None:
         html_body = (
-            f"<h2>ConfirmaciÃ³n de Cita - TusAbogados.com</h2>"
+            f"<h2>Confirmación de Cita - TusAbogados.com</h2>"
             f"<p>Hola <strong>{nombre}</strong>,</p>"
             f"<p>Tu cita ha sido registrada exitosamente:</p>"
             f"<ul>"
             f"<li>ðŸ“… <strong>Fecha:</strong> {fecha_display}</li>"
             f"<li>ðŸ• <strong>Hora:</strong> {hora_display}</li>"
-            f"<li>ðŸ“‹ <strong>CategorÃ­a:</strong> {categoria}</li>"
+            f"<li>ðŸ“‹ <strong>Categoría:</strong> {categoria}</li>"
             f"</ul>"
-            f"<p><strong>CÃ³digo de acceso:</strong> "
+            f"<p><strong>Código de acceso:</strong> "
             f"<span style='font-size:24px;color:#1a73e8;font-weight:bold;'>"
             f"{codigo}</span></p>"
-            f"<p><strong>Link para tu asesorÃ­a:</strong></p>"
+            f"<p><strong>Link para tu asesoría:</strong></p>"
             f"<p><a href='{url_voz}' style='background-color:#1a73e8;color:white;"
             f"padding:12px 24px;text-decoration:none;border-radius:6px;"
-            f"display:inline-block;'>Entrar a la asesorÃ­a</a></p>"
-            f"<p><small>El link es de uso Ãºnico. 15 minutos antes de tu cita "
-            f"recibirÃ¡s un recordatorio.</small></p>"
-            f"<hr><p><small>Â© {datetime.now().year} TusAbogados.com</small></p>"
+            f"display:inline-block;'>Entrar a la asesoría</a></p>"
+            f"<p><small>El link es de uso único. 15 minutos antes de tu cita "
+            f"recibirás un recordatorio.</small></p>"
+            f"<hr><p><small>© {datetime.now().year} TusAbogados.com</small></p>"
         )
 
     texto_plano = (
-        f"ConfirmaciÃ³n de Cita - TusAbogados.com\n\n"
+        f"Confirmación de Cita - TusAbogados.com\n\n"
         f"Hola {nombre},\n\n"
         f"Tu cita ha sido registrada:\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n"
-        f"CategorÃ­a: {categoria}\n\n"
-        f"CÃ³digo de acceso: {codigo}\nLink: {url_voz}\n\n"
-        f"El link es de uso Ãºnico. RecibirÃ¡s un recordatorio 15 min antes.\n\n"
-        f"Â© {datetime.now().year} TusAbogados.com"
+        f"Categoría: {categoria}\n\n"
+        f"Código de acceso: {codigo}\nLink: {url_voz}\n\n"
+        f"El link es de uso único. RecibirÃ¡s un recordatorio 15 min antes.\n\n"
+        f"© {datetime.now().year} TusAbogados.com"
     )
 
-    asunto = f"ConfirmaciÃ³n de tu cita - TusAbogados.com | {fecha_display}"
+    asunto = f"Confirmación de tu cita - TusAbogados.com | {fecha_display}"
     return _enviar_correo(email, asunto, html_body, texto_plano)
 
 
 def enviar_correo_recordatorio(datos_cita):
     """
-    EnvÃ­a el correo de recordatorio 15 minutos antes de la cita.
+    Envía el correo de recordatorio 15 minutos antes de la cita.
     """
     nombre = datos_cita.get("nombre", "")
     email = datos_cita.get("email", "")
@@ -244,7 +244,7 @@ def enviar_correo_recordatorio(datos_cita):
     telefono = datos_cita.get("telefono", "")
 
     if not email:
-        logger.warning("No se puede enviar recordatorio: email vacÃ­o")
+        logger.warning("No se puede enviar recordatorio: email vacío")
         return False
 
     fecha_display, hora_display = _formatear_fecha_display(fecha_cita, hora_cita)
@@ -265,31 +265,31 @@ def enviar_correo_recordatorio(datos_cita):
         html_body = (
             f"<h2>Recordatorio de Cita - TusAbogados.com</h2>"
             f"<p>Hola <strong>{nombre}</strong>,</p>"
-            f"<p>Tu asesorÃ­a legal comienza en "
+            f"<p>Tu asesoría legal comienza en "
             f"<strong>{MINUTOS_RECORDATORIO} minutos</strong>.</p>"
             f"<ul>"
             f"<li>ðŸ“… <strong>Fecha:</strong> {fecha_display}</li>"
             f"<li>ðŸ• <strong>Hora:</strong> {hora_display}</li>"
             f"</ul>"
-            f"<p><strong>CÃ³digo de acceso:</strong> "
+            f"<p><strong>Código de acceso:</strong> "
             f"<span style='font-size:28px;color:#d93025;font-weight:bold;'>"
             f"{codigo}</span></p>"
             f"<p><a href='{url_voz}' style='background-color:#d93025;color:white;"
             f"padding:14px 28px;text-decoration:none;border-radius:6px;"
             f"font-size:18px;display:inline-block;'>ðŸ“ž Entrar ahora</a></p>"
-            f"<hr><p><small>Â© {datetime.now().year} TusAbogados.com</small></p>"
+            f"<hr><p><small>© {datetime.now().year} TusAbogados.com</small></p>"
         )
 
     texto_plano = (
         f"Recordatorio de Cita - TusAbogados.com\n\n"
         f"Hola {nombre},\n\n"
-        f"Tu asesorÃ­a legal comienza en {MINUTOS_RECORDATORIO} minutos.\n"
+        f"Tu asesoría legal comienza en {MINUTOS_RECORDATORIO} minutos.\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n\n"
-        f"CÃ³digo de acceso: {codigo}\nLink: {url_voz}\n\n"
-        f"Â© {datetime.now().year} TusAbogados.com"
+        f"Código de acceso: {codigo}\nLink: {url_voz}\n\n"
+        f"© {datetime.now().year} TusAbogados.com"
     )
 
-    asunto = (f"Tu asesorÃ­a legal comienza en "
+    asunto = (f"Tu asesoría legal comienza en "
               f"{MINUTOS_RECORDATORIO} min | TusAbogados.com")
 
     resultado_email = _enviar_correo(email, asunto, html_body, texto_plano)
@@ -306,8 +306,8 @@ def enviar_correo_recordatorio(datos_cita):
 def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
                                   codigo, url_voz):
     """
-    EnvÃ­a recordatorio por WhatsApp.
-    Requiere configuraciÃ³n de API de WhatsApp (Twilio, Meta Business, etc.)
+    Envía recordatorio por WhatsApp.
+    Requiere configuración de API de WhatsApp (Twilio, Meta Business, etc.)
     """
     if not WHATSAPP_API_URL or not WHATSAPP_API_TOKEN:
         logger.info(
@@ -318,13 +318,13 @@ def enviar_whatsapp_recordatorio(telefono, nombre, fecha_display, hora_display,
 
     mensaje = (
         f"Recordatorio - TusAbogados.com\n\n"
-        f"Hola {nombre}, tu asesorÃ­a legal comienza en "
+        f"Hola {nombre}, tu asesoría legal comienza en "
         f"{MINUTOS_RECORDATORIO} minutos.\n\n"
         f"Fecha: {fecha_display}\nHora: {hora_display}\n\n"
-        f"CÃ³digo de acceso: {codigo}\n\n"
+        f"Código de acceso: {codigo}\n\n"
         f"Ingresa aquÃ­: {url_voz}\n\n"
         f"Un abogado especializado te atenderÃ¡ por videollamada. "
-        f"Ten a mano tu cÃ³digo de 3 dÃ­gitos."
+        f"Ten a mano tu código de 3 dÃ­gitos."
     )
 
     try:
