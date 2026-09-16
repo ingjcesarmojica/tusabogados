@@ -80,7 +80,7 @@ PASOS = {
     "verificacion_pruebas": {
         "id": "verificacion_pruebas",
         "siguiente": "descripcion_caso",
-        "mensaje": "Perfecto, tu caso está relacionado con derecho {categoria}. Una pregunta importante: ¿cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?",
+        "mensaje": "Para el caso que nos ocupa, de carácter {categoria}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\nPARA CASOS CIVILES:\n- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?\n\nCASO LABORAL:\n- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?\n\nCASO PENAL:\n- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
         "validar": None,
         "botones": [
             {
