@@ -968,7 +968,7 @@ def chat():
                 paso_desc = obtener_paso("descripcion_caso")
                 datos = obtener_estado_chat()
                 if accion_boton == "si_pruebas":
-                    response = "Excelente. Cuéntame brevemente qué sucedió en su caso — con eso podré entender mejor su situación. También puede adjuntar los archivos que considere relevantes (documentos, fotos, audios, etc.)."
+                    response = "Excelente. Cuénteme brevemente qué sucedió en su caso — con eso podré entender mejor su situación. También puede adjuntar los archivos que considere relevantes (documentos, fotos, audios, etc.)."
                 else:
                     response = formatear_mensaje(paso_desc, datos)
                 save_conversation(response, "verificacion_pruebas", message)
