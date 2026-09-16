@@ -71,11 +71,13 @@ OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
 
 TTS_VOICE = os.environ.get("TTS_VOICE", "es-US-PalomaNeural")
 
-INSTRUCCIONES_PREGUNTAS_ADICIONALES = """INSTRUCCIONES PARA PREGUNTAS FUERA DEL GUION PRINCIPAL
+from guion import AGENTE_NOMBRE
+
+INSTRUCCIONES_PREGUNTAS_ADICIONALES = f"""INSTRUCCIONES PARA PREGUNTAS FUERA DEL GUION PRINCIPAL
 
 Si el usuario hace una pregunta que no está contemplada en el flujo conversacional definido (por ejemplo, dudas legales generales, preguntas sobre otras áreas del derecho, temas administrativos del despacho, o cualquier consulta que no corresponda al paso actual del guion), sigue estas reglas:
 
-1. NUNCA respondas "no sé" o "no puedo ayudarte" de forma seca. Mantén siempre un tono cálido, profesional y servicial, como lo haría Claudia García, agente especializada en derecho de TusAbogados.com.
+1. NUNCA respondas "no sé" o "no puedo ayudarte" de forma seca. Mantén siempre un tono cálido, profesional y servicial, como lo haría {AGENTE_NOMBRE}, agente especializada en derecho de TusAbogados.com.
 
 2. CLASIFICA la pregunta antes de responder:
 
@@ -172,7 +174,8 @@ def gemini_response(user_message, context=""):
     if not GEMINI_CONFIGURED or gemini_model is None:
         return None
     try:
-        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho de TusAbogados.com.
+        from guion import AGENTE_NOMBRE
+        system_prompt = f"""Eres {AGENTE_NOMBRE}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
 - Eres una abogada con experiencia en derecho civil, laboral y penal.
@@ -231,7 +234,8 @@ def openrouter_response(user_message, context=""):
     if not OPENROUTER_CONFIGURED:
         return None
     try:
-        system_prompt = """Eres Claudia García, abogada virtual especializada en Derecho de TusAbogados.com.
+        from guion import AGENTE_NOMBRE
+        system_prompt = f"""Eres {AGENTE_NOMBRE}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
 - Eres una abogada con experiencia en derecho civil, laboral y penal.

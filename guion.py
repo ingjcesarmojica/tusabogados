@@ -1,16 +1,23 @@
 """
-Guion Conversacional - Agente IA Legal "Claudia García"
+Guion Conversacional - Agente IA Legal
 Tusabogados.com
 
 Flujo conversacional estructurado para chat y llamadas.
 """
+
+# ============================================================
+# NOMBRE DEL AGENTE - Configurable desde variable de entorno
+# Cambiar AGENTE_NOMBRE en .env para personalizar el nombre
+# ============================================================
+import os
+AGENTE_NOMBRE = os.environ.get("AGENTE_NOMBRE", "Claudia García")
 
 # PASOS DEL GUION CONVERSACIONAL
 PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "identificacion_rol",
-        "mensaje": "¡Bienvenido a TusAbogados.com! Somos un bufete de abogados especializado en brindarte asesoría legal confiable. Soy Claudia García, tu asistente virtual, y estoy aquí para orientarte de la mejor manera posible con tu caso. Para comenzar, ¿podrías indicarme tu nombre completo?",
+        "mensaje": f"¡Bienvenido a TusAbogados.com! Somos un bufete de abogados especializado en brindarte asesoría legal confiable. Soy {AGENTE_NOMBRE}, tu asistente virtual, y estoy aquí para orientarte de la mejor manera posible con tu caso. Para comenzar, ¿podrías indicarme tu nombre completo?",
         "validar": "nombre",
         "botones": None,
     },

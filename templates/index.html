@@ -1158,7 +1158,7 @@
                 phoneWaves.classList.remove('ringing');
                 phoneWaves.classList.add('connected');
                 document.getElementById('startCallBtn').style.background = '#ef4444';
-                    document.getElementById('statusIndicator').textContent = 'Claudia contesta...';
+                    document.getElementById('statusIndicator').textContent = document.getElementById('agentProfileName').textContent + ' contesta...';
                     sendCallMessage('', 'nueva_llamada');
             }, 3600);
         }
@@ -1317,7 +1317,7 @@
             var seqId = callSequenceId;
             isSpeaking = true;
             stopRingtone();
-            document.getElementById('statusIndicator').textContent = "Claudia habla...";
+            document.getElementById('statusIndicator').textContent = document.getElementById('agentProfileName').textContent + " habla...";
             
             fetch(SPEAK_API_URL, {
                 method: 'POST',
