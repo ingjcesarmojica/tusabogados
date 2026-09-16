@@ -233,7 +233,7 @@ def enviar_correo_confirmacion(datos_cita):
         f"© {datetime.now().year} TusAbogados.com"
     )
 
-    asunto = f"Confirmación de tu cita - TusAbogados.com | {fecha_display}"
+    asunto = f"TusAbogados.com - Confirmación de cita - | {fecha_display}"
     return _enviar_correo(email, asunto, html_body, texto_plano)
 
 
