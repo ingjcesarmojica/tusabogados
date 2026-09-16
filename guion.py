@@ -115,7 +115,7 @@ PASOS = {
     "captura_telefono": {
         "id": "captura_telefono",
         "siguiente": "confirmacion_cita",
-        "mensaje": "Correo registrado correctamente. Ahora, ¿cuál es tu número telefónico? Con este dato, uno de nuestros especialistas podrá contactarte sin ningún costo.",
+        "mensaje": "Correo registrado correctamente.\n\nPara que el especialista se contacte con Usted, sin cobro alguno.\n\n¿Cuál es su número telefónico?",
         "validar": "telefono",
         "botones": None,
         "campo": "user_phone",
