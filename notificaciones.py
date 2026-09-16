@@ -76,6 +76,13 @@ def _enviar_correo(destinatario, asunto, html_body, texto_plano=""):
             "to": [destinatario],
             "subject": asunto,
             "html": html_body,
+            "text": texto_plano,
+            "reply_to": "contacto@tusabogados.com",
+            "headers": {
+                "List-Unsubscribe": "<mailto:contacto@tusabogados.com?subject=unsubscribe>",
+                "Precedence": "bulk",
+                "X-Auto-Response-Suppress": "All",
+            },
         }
 
         headers = {
