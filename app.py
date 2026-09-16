@@ -915,7 +915,12 @@ def chat():
                 guardar_estado_campo("case_category", accion_boton)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\nPARA CASOS CIVILES:\n- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?\n\nCASO LABORAL:\n- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?\n\nCASO PENAL:\n- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?"
+                ejemplos = {
+                    "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
+                    "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
+                    "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
+                }
+                response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos.get(accion_boton, '')}"
                 save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
                     {
@@ -1298,7 +1303,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 guardar_estado_campo("case_category", categoria_detectada)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\nPARA CASOS CIVILES:\n- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?\n\nCASO LABORAL:\n- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?\n\nCASO PENAL:\n- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?"
+                ejemplos = {
+                    "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
+                    "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
+                    "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
+                }
+                response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos.get(categoria_detectada, '')}"
                 save_conversation(response, "descripcion_categoria", message)
                 return jsonify(
                     {
