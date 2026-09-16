@@ -44,9 +44,8 @@ def generar_codigo_acceso():
 
 
 def generar_url_agente_voz():
-    """Genera una URL unica para el agente de voz con un token UUID."""
-    token = uuid.uuid4().hex
-    return f"{AGENTE_VOZ_BASE_URL}/cita/{token}", token
+    """Retorna la URL del agente de voz."""
+    return AGENTE_VOZ_BASE_URL, ""
 
 
 def _email_configurado():
