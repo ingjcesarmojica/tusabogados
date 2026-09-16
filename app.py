@@ -903,6 +903,21 @@ def chat():
 
             if accion_boton in ["si_pruebas", "no_pruebas"]:
                 guardar_estado_campo("has_evidence", accion_boton)
+                # Si ya tiene descripción (vino de "no_definida"/descripcion_categoria), saltar descripcion_caso
+                ya_tiene_descripcion = bool(getattr(chat, "case_description", "").strip())
+                if ya_tiene_descripcion:
+                    chat.paso_actual = "captura_correo"
+                    paso_correo = obtener_paso("captura_correo")
+                    response = formatear_mensaje(paso_correo, obtener_estado_chat())
+                    save_conversation(response, "verificacion_pruebas", message)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": "captura_correo",
+                        }
+                    )
                 chat.paso_actual = "descripcion_caso"
                 paso_desc = obtener_paso("descripcion_caso")
                 datos = obtener_estado_chat()
