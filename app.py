@@ -920,7 +920,11 @@ def chat():
                     "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
                     "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
                 }
-                response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos.get(accion_boton, '')}"
+                if accion_boton in ejemplos:
+                    response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[accion_boton]}"
+                else:
+                    context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
+                    response = get_llm_response(message, context=context) or f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
                 save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
                     {
@@ -1308,7 +1312,11 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                     "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
                     "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
                 }
-                response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos.get(categoria_detectada, '')}"
+                if categoria_detectada in ejemplos:
+                    response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[categoria_detectada]}"
+                else:
+                    context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirma la categoría y pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
+                    response = get_llm_response(message, context=context) or f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
                 save_conversation(response, "descripcion_categoria", message)
                 return jsonify(
                     {
