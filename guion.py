@@ -24,18 +24,18 @@ PASOS = {
     "identificacion_rol": {
         "id": "identificacion_rol",
         "siguiente": "categorizacion_caso",
-        "mensaje": "Un gusto, {nombre}. Para darte una orientación más precisa, cuéntame: ¿cuál es tu situación en este caso?",
+        "mensaje": "Mucho gusto {nombre}. Para orientarle mejor, necesito saber su rol en el caso.\n\n¿Es usted:\n• \"Demandado\": por ejemplo, si lo están acusando de algo, o tiene un proceso en contra donde necesita defenderse legalmente.\n• \"Demandante\": por ejemplo, si quiere solicitar una compensación por algún daño, ejemplo iniciar una demanda por divorcio, reclamar una herencia, demandar por deudas o incumplimiento de contrato, o exigir sus derechos laborales.\n\n¿Se considera demandado o demandante en esta situación?",
         "validar": None,
         "botones": [
             {
                 "texto": "Demandado",
                 "valor": "demandado",
-                "descripcion": "Si sufrí un accidente, me deben dinero, fui estafado, o sufrí algún daño.",
+                "descripcion": "Si lo están acusando de algo, o tiene un proceso en contra donde necesita defenderse legalmente.",
             },
             {
                 "texto": "Demandante",
                 "valor": "demandante",
-                "descripcion": "Si quiero iniciar una demanda por divorcio, herencia, contrato, o mis derechos laborales.",
+                "descripcion": "Si quiere solicitar una compensación por algún daño, como iniciar una demanda por divorcio, reclamar una herencia, demandar por deudas o exigir sus derechos laborales.",
             },
         ],
         "campo": "user_role",
