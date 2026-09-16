@@ -643,7 +643,7 @@ def chat():
         if paso_actual_id in ["manejo_post_cita", "despedida", "final"]:
             if is_farewell or accion_boton == "despedida":
                 name = getattr(chat, "user_name", "")
-                response = f"Gracias a usted. ¡Que tengas un excelente día!"
+                response = f"¡{name}!\n\nHa sido un placer ayudarle. Un especialista se contactará con usted en la fecha acordada.\n\nEsta llamada se finalizará automáticamente. ¡Que tenga un excelente día!"
                 limpiar_estado_chat()
                 return jsonify(
                     {

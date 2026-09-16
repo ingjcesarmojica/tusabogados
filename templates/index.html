@@ -918,14 +918,8 @@
                     toggleUploadBtn('chat', data.show_upload);
                     
                     if (data.end_call) {
-                        document.getElementById('chatMessages').innerHTML = '';
-                        document.getElementById('chatInput').value = '';
-                        var toast = document.getElementById('goodbyeToast');
-                        toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
-                        toast.classList.add('show');
-                        setTimeout(function() {
-                            toast.classList.remove('show');
-                        }, 5000);
+                        document.getElementById('chatInput').style.display = 'none';
+                        document.querySelector('.chat-input-area .send-btn').style.display = 'none';
                     }
                 }, remaining);
             })
@@ -964,14 +958,8 @@
                     toggleUploadBtn('chat', data.show_upload);
                     
                     if (data.end_call) {
-                        document.getElementById('chatMessages').innerHTML = '';
-                        document.getElementById('chatInput').value = '';
-                        var toast = document.getElementById('goodbyeToast');
-                        toast.textContent = 'Gracias por utilizar los servicios de TusAbogados.com. Nos pondremos en contacto contigo lo más pronto posible.';
-                        toast.classList.add('show');
-                        setTimeout(function() {
-                            toast.classList.remove('show');
-                        }, 5000);
+                        document.getElementById('chatInput').style.display = 'none';
+                        document.querySelector('.chat-input-area .send-btn').style.display = 'none';
                     }
                 }, remaining);
             })

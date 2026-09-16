@@ -144,7 +144,7 @@ PASOS = {
     "manejo_post_cita": {
         "id": "manejo_post_cita",
         "siguiente": None,
-        "mensaje": "Perfecto, {nombre}. Ha sido un placer ayudarte. Un abogado se comunicará contigo en la fecha acordada. ¡Que tengas un excelente día!",
+        "mensaje": "¡{nombre}!\n\nHa sido un placer ayudarle. Un especialista se contactará con usted en la fecha acordada.\n\nEsta llamada se finalizará automáticamente. ¡Que tenga un excelente día!",
         "validar": None,
         "botones": None,
         "fin": True,
