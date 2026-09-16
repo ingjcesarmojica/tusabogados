@@ -17,7 +17,7 @@ PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "identificacion_rol",
-        "mensaje": f"¡Bienvenido a TusAbogados.com! Somos un bufete de abogados especializado en brindarte asesoría legal confiable. Soy {AGENTE_NOMBRE}, tu asistente virtual, y estoy aquí para orientarte de la mejor manera posible con tu caso. Para comenzar, ¿podrías indicarme tu nombre completo?",
+        "mensaje": f"¡Bienvenido a TusAbogados.com! Somos un bufete de abogados especializado en brindarte asesoría legal confiable. Soy {AGENTE_NOMBRE}, tu Agente especializado, y estoy aquí para orientarte de la mejor manera posible con tu caso. Para comenzar, ¿podrías indicarme tu nombre completo?",
         "validar": "nombre",
         "botones": None,
     },
