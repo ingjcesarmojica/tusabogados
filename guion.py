@@ -17,7 +17,7 @@ PASOS = {
     "saludo_inicial": {
         "id": "saludo_inicial",
         "siguiente": "identificacion_rol",
-        "mensaje": f"¡Bienvenido a TusAbogados.com! Somos un bufete de abogados especializado en brindarte asesoría legal confiable. Soy {AGENTE_NOMBRE}, tu Agente especializado, y estoy aquí para orientarte de la mejor manera posible con tu caso. Para comenzar, ¿podrías indicarme tu nombre completo?",
+        "mensaje": f"¡Bienvenido a TusAbogados.com! Buffet de abogados, donde garantizamos que no hay cobros de comisiones hasta que ganemos el caso. Soy {AGENTE_NOMBRE}, especialista IA, y le ayudaremos a resolver de la mejor manera su caso legal. Para personalizar su atención, por favor dígame sus nombres y apellidos:",
         "validar": "nombre",
         "botones": None,
     },
