@@ -869,7 +869,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ message: message, agent_name: document.getElementById('agentProfileName').textContent.trim() })
             })
             .then(response => response.json())
             .then(data => {
@@ -916,7 +916,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: texto, action: action })
+                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim() })
             })
             .then(response => response.json())
             .then(data => {
@@ -1232,7 +1232,7 @@
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
             if (message) addCallMessage(message, 'user');
             
-            var body = { message: message || '' };
+            var body = { message: message || '', agent_name: document.getElementById('agentProfileName').textContent.trim() };
             if (action) body.action = action;
             
             fetch(CHAT_API_URL, {
@@ -1270,7 +1270,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: texto, action: action })
+                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim() })
             })
             .then(function(response) { return response.json(); })
             .then(function(data) {

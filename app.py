@@ -174,8 +174,8 @@ def gemini_response(user_message, context=""):
     if not GEMINI_CONFIGURED or gemini_model is None:
         return None
     try:
-        from guion import AGENTE_NOMBRE
-        system_prompt = f"""Eres {AGENTE_NOMBRE}, abogada virtual especializada en Derecho de TusAbogados.com.
+        agente = getattr(chat, "agent_name", AGENTE_NOMBRE)
+        system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
 - Eres una abogada con experiencia en derecho civil, laboral y penal.
@@ -234,8 +234,8 @@ def openrouter_response(user_message, context=""):
     if not OPENROUTER_CONFIGURED:
         return None
     try:
-        from guion import AGENTE_NOMBRE
-        system_prompt = f"""Eres {AGENTE_NOMBRE}, abogada virtual especializada en Derecho de TusAbogados.com.
+        agente = getattr(chat, "agent_name", AGENTE_NOMBRE)
+        system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
 - Eres una abogada con experiencia en derecho civil, laboral y penal.
@@ -471,6 +471,10 @@ def chat():
         data = request.json
         message = data.get("message", "")
         accion_boton = data.get("action", None)
+        agent_name = data.get("agent_name", "").strip() or AGENTE_NOMBRE
+
+        # Guardar el nombre del agente para usarlo en toda la conversación
+        chat.agent_name = agent_name
 
         if not message and not accion_boton:
             return jsonify({"error": "No message provided"}), 400
@@ -480,7 +484,7 @@ def chat():
             chat.paso_actual = "saludo_inicial"
             chat.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
-            response = paso["mensaje"]
+            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
             save_conversation(response, "saludo_inicial", message)
             return jsonify(
                 {
@@ -551,7 +555,7 @@ def chat():
             limpiar_estado_chat()
             chat.paso_actual = "saludo_inicial"
             paso = obtener_paso("saludo_inicial")
-            response = paso["mensaje"]
+            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
             return jsonify(
                 {
                     "response": response,
@@ -566,7 +570,7 @@ def chat():
             chat.paso_actual = "saludo_inicial"
             chat.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
-            response = paso["mensaje"]
+            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
             return jsonify(
                 {
                     "response": response,
@@ -1550,7 +1554,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
                     )
             pregunta = message or ""
             context = f"Usuario adicional: {pregunta}"
-            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES
+            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES.replace(AGENTE_NOMBRE, getattr(chat, "agent_name", AGENTE_NOMBRE))
             app.logger.info(
                 f"pregunta_consultar: pregunta='{pregunta}', OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
             )
