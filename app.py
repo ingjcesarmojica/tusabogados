@@ -1054,7 +1054,7 @@ def chat():
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
@@ -1445,7 +1445,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
 📧 Correo de confirmación: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
                 buttons = [
@@ -1543,7 +1543,7 @@ He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 mil
 📧 Confirmación enviada a: {email}
 📱 Teléfono de contacto: {phone}
 
-He analizado tu caso. Te cuento cómo funciona: si el monto no supera los 10 millones de pesos, no tienes que pagar nada por adelantado — solo se cobra un honorario del 10% si ganamos el caso.
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
 
 ¿Hay algo más en lo que pueda ayudarte?"""
             buttons = [
