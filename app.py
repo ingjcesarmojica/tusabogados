@@ -335,6 +335,50 @@ def get_llm_response(user_message, context=""):
     return None
 
 
+def categorizar_por_palabras_clave(descripcion):
+    """Clasifica el caso por palabras clave cuando el LLM no está disponible."""
+    desc = descripcion.lower()
+
+    palabras_penal = [
+        "robo", "robos", "agresión", "agresiones", "amenaza", "amenazas",
+        "estafa", "estafas", "fraude", "fraudes", "violencia", "delito",
+        "delitos", "denuncia", "denuncias penales", "hurto", "homicidio",
+        "lesiones", "extorsión", "sicariato", "consumo", "tráfico",
+    ]
+    palabras_laboral = [
+        "despido", "despedido", "despedida", "acoso laboral", "prestaciones",
+        "liquidación", "liquidación laboral", "indemnización laboral",
+        "accidente de trabajo", "derechos del trabajador", "salario",
+        "contrato laboral", "jornada", "horas extras", "parafiscales",
+        "cotización", "pensión", "incapacidad", "afiliación",
+    ]
+    palabras_civil = [
+        "divorcio", "herencia", "herencias", "contrato", "contratos",
+        "propiedad", "indemnización", "custodia", "menores", "sucesión",
+        "sucesiones", "arrendamiento", "arrendamientos", "responsabilidad civil",
+        "pensión alimenticia", "tenencia", "régimen de visitas",
+        "reconvención", "evicción", "mejoras", "usufructo", "servidumbre",
+        "hipoteca", "prenda", "fianza", "liquidación de sociedad conyugal",
+    ]
+
+    penal_score = sum(1 for p in palabras_penal if p in desc)
+    laboral_score = sum(1 for p in palabras_laboral if p in desc)
+    civil_score = sum(1 for p in palabras_civil if p in desc)
+
+    app.logger.info(
+        f"Categorización por keywords: civil={civil_score}, laboral={laboral_score}, penal={penal_score}"
+    )
+
+    max_score = max(civil_score, laboral_score, penal_score)
+    if max_score == 0:
+        return "civil"
+    if penal_score == max_score:
+        return "penal"
+    if laboral_score == max_score:
+        return "laboral"
+    return "civil"
+
+
 def categorizar_caso_con_llm(descripcion):
     system_prompt = "Eres un asistente de clasificación de casos legales. Tu ÚNICO trabajo es clasificar la descripción del caso en una categoría. No saludes, no expliques, no converses."
 
@@ -391,7 +435,9 @@ Responde SOLO con la palabra: civil, laboral o penal."""
     except Exception as e:
         app.logger.error(f"Error en categorizar_caso_con_llm: {e}")
 
-    return None
+    # Respaldo: clasificación por palabras clave cuando el LLM falla
+    app.logger.info(f"Categorización LLM falló, usando respaldo por palabras clave para: '{descripcion[:80]}'")
+    return categorizar_por_palabras_clave(descripcion)
 
 
 def limpiar_estado_chat():
@@ -1254,7 +1300,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 chat.case_description = result
                 categoria_detectada = categorizar_caso_con_llm(result)
                 if categoria_detectada not in ["civil", "laboral", "penal"]:
-                    categoria_detectada = "laboral"
+                    categoria_detectada = "civil"
                 guardar_estado_campo("case_category", categoria_detectada)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
