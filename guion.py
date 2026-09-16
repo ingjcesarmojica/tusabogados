@@ -43,18 +43,18 @@ PASOS = {
     "categorizacion_caso": {
         "id": "categorizacion_caso",
         "siguiente": "verificacion_pruebas",
-        "mensaje": "Perfecto. Hemos registrado tu información como {rol}. Ahora, para orientarte mejor, cuéntame: ¿a qué categoría corresponde tu caso?",
+        "mensaje": "Entendido {nombre}, como {rol}. Ahora necesito saber el tipo de caso.\n\nPor ejemplo:\n• \"Categoría Civil\": si su caso es por divorcio, herencias, cumplimiento de contrato, deudas, o resolver problemas de propiedad.\n• \"Categoría Laboral\": por ejemplo, si va a demandar por despido injustificado, acoso laboral, o para reclamar prestaciones laborales.\n• \"Categoría Penal\": si su caso es por robos, agresiones, amenazas, o estafas.\n\nSi no está seguro a qué categoría pertenece su caso, puede decir: \"No sé cuál es mi categoría\" o \"La desconozco\".\n\n¿En qué categoría cree que está su caso?",
         "validar": None,
         "botones": [
             {
                 "texto": "Categoría Civil",
                 "valor": "civil",
-                "descripcion": "Divorcio, herencias, contratos, propiedad.",
+                "descripcion": "Divorcio, herencias, cumplimiento de contrato, deudas, propiedad.",
             },
             {
                 "texto": "Categoría Laboral",
                 "valor": "laboral",
-                "descripcion": "Despido injustificado, acoso laboral, prestaciones.",
+                "descripcion": "Despido injustificado, acoso laboral, prestaciones laborales.",
             },
             {
                 "texto": "Categoría Penal",
@@ -64,7 +64,7 @@ PASOS = {
             {
                 "texto": "No sé cuál es mi categoría",
                 "valor": "no_definida",
-                "descripcion": "Un abogado te orientará.",
+                "descripcion": "Un abogado le orientará.",
             },
         ],
         "campo": "case_category",
