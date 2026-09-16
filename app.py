@@ -915,12 +915,12 @@ def chat():
                 guardar_estado_campo("case_category", accion_boton)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregunta si tiene pruebas (documentos, fotos, audios). Sé breve, 1-2 oraciones."
+                context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregunta si tiene pruebas. Sé breve, máximo 2 oraciones."
                 llm_resp = get_llm_response(message, context=context)
                 response = (
                     llm_resp
                     if llm_resp
-                    else f"Perfecto, tu caso está relacionado con derecho {accion_boton}. ¿Cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?"
+                    else f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\nPARA CASOS CIVILES:\n- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?\n\nCASO LABORAL:\n- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?\n\nCASO PENAL:\n- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?"
                 )
                 save_conversation(response, "categorizacion_caso", message)
                 return jsonify(
@@ -1304,12 +1304,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 guardar_estado_campo("case_category", categoria_detectada)
                 chat.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
-                context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirmale la categoría y pregunta si tiene pruebas (documentos, fotos, audios). Sé breve, 1-2 oraciones."
+                context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirma la categoría y pregunta si tiene pruebas. Sé breve, máximo 2 oraciones."
                 llm_resp = get_llm_response(message, context=context)
                 response = (
                     llm_resp
                     if llm_resp
-                    else f"Tu caso corresponde a derecho {categoria_detectada}. ¿Cuentas con pruebas que respalden tu caso, como documentos, fotos, audios u otros?"
+                    else f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\nPARA CASOS CIVILES:\n- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?\n\nCASO LABORAL:\n- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?\n\nCASO PENAL:\n- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?"
                 )
                 save_conversation(response, "descripcion_categoria", message)
                 return jsonify(
