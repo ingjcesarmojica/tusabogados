@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -767,6 +767,7 @@
         let listeningTimeout = null;
         let callSequenceId = 0;
         let chatInitialized = false;
+        var sessionId = localStorage.getItem('tusabogados_session_id') || '';
         
         const CHAT_API_URL = '/api/chat';
         const SPEAK_API_URL = '/api/speak';
@@ -782,7 +783,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: '', action: 'nueva_llamada', agent_name: document.getElementById('agentProfileName').textContent.trim() })
+                body: JSON.stringify({ message: '', action: 'nueva_llamada', agent_name: document.getElementById('agentProfileName').textContent.trim(), session_id: sessionId })
             })
             .then(response => response.json())
             .then(data => {
@@ -790,6 +791,10 @@
                 var remaining = Math.max(0, 2000 - elapsed);
                 setTimeout(function() {
                     hideTyping();
+                    if (data.session_id) {
+                        sessionId = data.session_id;
+                        localStorage.setItem('tusabogados_session_id', sessionId);
+                    }
                     if (data.response) {
                         addMessage(data.response, 'bot', data.buttons);
                     }
@@ -899,7 +904,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message, agent_name: document.getElementById('agentProfileName').textContent.trim() })
+                body: JSON.stringify({ message: message, agent_name: document.getElementById('agentProfileName').textContent.trim(), session_id: sessionId })
             })
             .then(response => response.json())
             .then(data => {
@@ -908,6 +913,11 @@
                 setTimeout(function() {
                     hideTyping();
                     document.getElementById('sendBtn').disabled = false;
+                    
+                    if (data.session_id) {
+                        sessionId = data.session_id;
+                        localStorage.setItem('tusabogados_session_id', sessionId);
+                    }
                     
                     if (data.error) {
                         addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
@@ -940,7 +950,7 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim() })
+                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim(), session_id: sessionId })
             })
             .then(response => response.json())
             .then(data => {
@@ -948,6 +958,11 @@
                 var remaining = Math.max(0, 3000 - elapsed);
                 setTimeout(function() {
                     hideTyping();
+                    
+                    if (data.session_id) {
+                        sessionId = data.session_id;
+                        localStorage.setItem('tusabogados_session_id', sessionId);
+                    }
                     
                     if (data.error) {
                         addMessage('Lo siento, hubo un error. Intenta de nuevo.', 'bot');
@@ -1250,7 +1265,7 @@
             document.getElementById('statusIndicator').textContent = "Respondiendo...";
             if (message) addCallMessage(message, 'user');
             
-            var body = { message: message || '', agent_name: document.getElementById('agentProfileName').textContent.trim() };
+            var body = { message: message || '', agent_name: document.getElementById('agentProfileName').textContent.trim(), session_id: sessionId };
             if (action) body.action = action;
             
             fetch(CHAT_API_URL, {
@@ -1261,6 +1276,10 @@
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (!isCalling) return;
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('tusabogados_session_id', sessionId);
+                }
                 if (data.error) {
                     showError("Error procesando tu mensaje.");
                     callPromptRetry();
@@ -1288,11 +1307,15 @@
             fetch(CHAT_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim() })
+                body: JSON.stringify({ message: texto, action: action, agent_name: document.getElementById('agentProfileName').textContent.trim(), session_id: sessionId })
             })
             .then(function(response) { return response.json(); })
             .then(function(data) {
                 if (!isCalling) return;
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('tusabogados_session_id', sessionId);
+                }
                 if (data.error) {
                     showError("Error procesando tu mensaje.");
                     callPromptRetry();

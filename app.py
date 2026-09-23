@@ -1,19 +1,20 @@
 import os
-import io
 import asyncio
 import base64
 import re
 import json
 import tempfile
 import threading
+import uuid
 import requests
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, g
 from flask_cors import CORS
 import logging
 import edge_tts
 import google.generativeai as genai
 from dotenv import load_dotenv
-from types import SimpleNamespace
+from chat_session import ChatSession
+from guion import AGENTE_NOMBRE, PASOS, obtener_paso, formatear_mensaje, validar_respuesta
 from database import (
     guardar_conversacion,
     guardar_usuario,
@@ -26,6 +27,7 @@ from calendario import (
     obtener_siguiente_cita_disponible,
     obtener_cita_despues_de,
     formatear_fecha_completa,
+    proxima_cita,
 )
 from notificaciones import (
     generar_codigo_acceso,
@@ -33,9 +35,9 @@ from notificaciones import (
     enviar_correo_confirmacion,
     programar_recordatorio,
     iniciar_recordatorios_pendientes,
+    iniciar_verificador_recordatorios,
 )
 
-chat = SimpleNamespace()
 
 try:
     from rag import search_knowledge, add_pdf, list_documents, delete_document
@@ -70,8 +72,6 @@ OPENROUTER_MODEL = os.environ.get(
 OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
 
 TTS_VOICE = os.environ.get("TTS_VOICE", "es-US-PalomaNeural")
-
-from guion import AGENTE_NOMBRE
 
 INSTRUCCIONES_PREGUNTAS_ADICIONALES = f"""INSTRUCCIONES PARA PREGUNTAS FUERA DEL GUION PRINCIPAL
 
@@ -115,20 +115,31 @@ async def generate_edge_tts(text, voice=None):
     if voice is None:
         voice = TTS_VOICE
     communicate = edge_tts.Communicate(text, voice)
-    tmp_path = os.path.join(os.path.dirname(__file__), "tmp_audio.mp3")
-    await communicate.save(tmp_path)
-    with open(tmp_path, "rb") as f:
-        audio_data = f.read()
-    os.remove(tmp_path)
-    return base64.b64encode(audio_data).decode("utf-8")
+    tmp_path = os.path.join(tempfile.gettempdir(), f"tts_{uuid.uuid4().hex}.mp3")
+    try:
+        await communicate.save(tmp_path)
+        with open(tmp_path, "rb") as f:
+            audio_data = f.read()
+        return base64.b64encode(audio_data).decode("utf-8")
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+
+_config_logged = False
 
 
 @app.before_request
 def log_config():
-    app.logger.info(
-        f"Gemini configured: {GEMINI_CONFIGURED}, OpenRouter configured: {OPENROUTER_CONFIGURED}, Model: {OPENROUTER_MODEL}"
-    )
-    app.logger.info(f"TTS Voice: {TTS_VOICE}")
+    global _config_logged
+    if not _config_logged:
+        _config_logged = True
+        app.logger.info(
+            f"Gemini configured: {GEMINI_CONFIGURED}, OpenRouter configured: {OPENROUTER_CONFIGURED}, Model: {OPENROUTER_MODEL}"
+        )
+        app.logger.info(f"TTS Voice: {TTS_VOICE}")
 
 
 @app.route("/")
@@ -170,11 +181,11 @@ def speak_text():
         )
 
 
-def gemini_response(user_message, context=""):
+def gemini_response(user_message, context="", state=None):
     if not GEMINI_CONFIGURED or gemini_model is None:
         return None
     try:
-        agente = getattr(chat, "agent_name", AGENTE_NOMBRE)
+        agente = getattr(state, "agent_name", AGENTE_NOMBRE)
         system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
@@ -230,11 +241,11 @@ Usuario: {user_message}"""
         return None
 
 
-def openrouter_response(user_message, context=""):
+def openrouter_response(user_message, context="", state=None):
     if not OPENROUTER_CONFIGURED:
         return None
     try:
-        agente = getattr(chat, "agent_name", AGENTE_NOMBRE)
+        agente = getattr(state, "agent_name", AGENTE_NOMBRE)
         system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
 
 ## Tu personalidad
@@ -313,7 +324,7 @@ Usuario: {user_message}"""
         return None
 
 
-def get_llm_response(user_message, context=""):
+def get_llm_response(user_message, context="", state=None):
     app.logger.info(
         f"get_llm_response: OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
     )
@@ -440,25 +451,9 @@ Responde SOLO con la palabra: civil, laboral o penal."""
     return categorizar_por_palabras_clave(descripcion)
 
 
-def limpiar_estado_chat():
-    """Limpia el estado de la conversación."""
-    attrs = [
-        "user_name",
-        "user_email",
-        "user_phone",
-        "case_description",
-        "case_subtype",
-        "appointment_time",
-        "appointment_fecha_str",
-        "appointment_hora",
-        "user_role",
-        "case_category",
-        "paso_actual",
-        "datos_usuario",
-    ]
-    for attr in attrs:
-        if hasattr(chat, attr):
-            delattr(chat, attr)
+def limpiar_estado_chat(state):
+    """Limpia el estado de la conversacion."""
+    state.clear()
 
 
 def get_next_appointment():
@@ -474,64 +469,67 @@ def get_next_appointment():
     if result:
         return result
     # Fallback: si no hay disponibilidad (improbable), usar la función básica
-    from calendario import proxima_cita
     return proxima_cita()
 
 
-def obtener_estado_chat():
-    """Obtiene el estado actual de la conversación como diccionario."""
-    user_name = getattr(chat, "user_name", "")
-    user_role = getattr(chat, "user_role", "")
-    case_category = getattr(chat, "case_category", "")
-    user_email = getattr(chat, "user_email", "")
-    user_phone = getattr(chat, "user_phone", "")
-    return {
-        "user_name": user_name,
-        "nombre": user_name,
-        "user_email": user_email,
-        "correo": user_email,
-        "user_phone": user_phone,
-        "telefono": user_phone,
-        "case_description": getattr(chat, "case_description", ""),
-        "case_subtype": getattr(chat, "case_subtype", ""),
-        "appointment_time": getattr(chat, "appointment_time", ""),
-        "fecha_cita": getattr(chat, "appointment_time", ""),
-        "user_role": user_role,
-        "rol": user_role,
-        "case_category": case_category,
-        "categoria": case_category,
-        "paso_actual": getattr(chat, "paso_actual", "saludo_inicial"),
-    }
+def obtener_estado_chat(state=None):
+    """Obtiene el estado de la conversacion."""
+    if state is not None:
+        return state.to_dict()
+    return {}
 
 
-def guardar_estado_campo(campo, valor):
-    """Guarda un campo en el estado de la conversación."""
-    setattr(chat, campo, valor)
+def guardar_estado_campo(campo, valor, state=None):
+    """Guarda un campo en el estado."""
+    if state is not None:
+        setattr(state, campo, valor)
+
+
+def save_conversation(response, paso_actual, user_message="", state=None):
+    """Guarda la conversacion en la base de datos."""
+    try:
+        email = getattr(state, "user_email", "") if state else ""
+        nombre = getattr(state, "user_name", "") if state else ""
+        app.logger.info(
+            f"save_conversation: email={email}, nombre={nombre}, paso={paso_actual}, msg_len={len(user_message or '')}"
+        )
+        datos = {
+            "email": email,
+            "nombre": nombre,
+            "mensaje_usuario": user_message if user_message else "",
+            "respuesta_agente": response,
+            "paso": paso_actual,
+        }
+        resultado = guardar_conversacion(datos)
+        app.logger.info(f"save_conversation resultado: {resultado}")
+    except Exception as e:
+        app.logger.error(f"Error saving conversation: {e}")
 
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     try:
-        from guion import PASOS, obtener_paso, formatear_mensaje, validar_respuesta
-
         data = request.json
         message = data.get("message", "")
         accion_boton = data.get("action", None)
         agent_name = data.get("agent_name", "").strip() or AGENTE_NOMBRE
+        session_id = data.get("session_id", "")
 
-        # Guardar el nombre del agente para usarlo en toda la conversación
-        chat.agent_name = agent_name
+        # Obtener o crear sesion aislada para este usuario
+        session_id, state = ChatSession.get_or_create(session_id)
+        g.resolved_session_id = session_id
+        state.agent_name = agent_name
 
         if not message and not accion_boton:
             return jsonify({"error": "No message provided"}), 400
 
         if accion_boton == "nueva_llamada":
-            limpiar_estado_chat()
-            chat.paso_actual = "saludo_inicial"
-            chat.datos_usuario = {}
+            limpiar_estado_chat(state)
+            state.paso_actual = "saludo_inicial"
+            state.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
             response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
-            save_conversation(response, "saludo_inicial", message)
+            save_conversation(response, "saludo_inicial", message, state=state)
             return jsonify(
                 {
                     "response": response,
@@ -594,12 +592,12 @@ def chat():
             or message_lower.startswith("para que ")
         )
 
-        paso_actual_id = getattr(chat, "paso_actual", "saludo_inicial")
+        paso_actual_id = getattr(state, "paso_actual", "saludo_inicial")
         paso_actual = obtener_paso(paso_actual_id)
 
-        if not hasattr(chat, "paso_actual"):
-            limpiar_estado_chat()
-            chat.paso_actual = "saludo_inicial"
+        if not hasattr(state, "paso_actual"):
+            limpiar_estado_chat(state)
+            state.paso_actual = "saludo_inicial"
             paso = obtener_paso("saludo_inicial")
             response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
             return jsonify(
@@ -612,9 +610,9 @@ def chat():
             )
 
         if is_greeting and paso_actual_id == "saludo_inicial":
-            limpiar_estado_chat()
-            chat.paso_actual = "saludo_inicial"
-            chat.datos_usuario = {}
+            limpiar_estado_chat(state)
+            state.paso_actual = "saludo_inicial"
+            state.datos_usuario = {}
             paso = obtener_paso("saludo_inicial")
             response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
             return jsonify(
@@ -628,9 +626,9 @@ def chat():
 
         if paso_actual and paso_actual.get("fin"):
             if is_farewell or accion_boton == "despedida":
-                name = getattr(chat, "user_name", "")
+                name = getattr(state, "user_name", "")
                 response = f"Gracias a usted por confiar en nosotros. Ha sido un gusto atenderle. Un abogado especializado se pondrá en contacto con usted en la fecha acordada.\n\nEsta chat se finalizará automáticamente. ¡Que tenga un excelente día!"
-                limpiar_estado_chat()
+                limpiar_estado_chat(state)
                 return jsonify(
                     {
                         "response": response,
@@ -642,9 +640,9 @@ def chat():
 
         if paso_actual_id in ["manejo_post_cita", "despedida", "final"]:
             if is_farewell or accion_boton == "despedida":
-                name = getattr(chat, "user_name", "")
+                name = getattr(state, "user_name", "")
                 response = f"¡{name}!\n\nHa sido un placer ayudarle. Un especialista se contactará con usted en la fecha acordada.\n\nEsta llamada se finalizará automáticamente. ¡Que tenga un excelente día!"
-                limpiar_estado_chat()
+                limpiar_estado_chat(state)
                 return jsonify(
                     {
                         "response": response,
@@ -655,7 +653,7 @@ def chat():
                 )
             if is_question:
                 context = (
-                    f"Usuario: {getattr(chat, 'user_name', 'usuario')}. Pregunta libre."
+                    f"Usuario: {getattr(state, 'user_name', 'usuario')}. Pregunta libre."
                 )
                 rag_response = None
                 if RAG_AVAILABLE:
@@ -678,7 +676,7 @@ def chat():
                         f"{rag_response}\n\n¿Hay algo más en lo que pueda asistirle?"
                     )
                 else:
-                    llm_resp = get_llm_response(message, context=context)
+                    llm_resp = get_llm_response(message, context=context, state=state)
                     if llm_resp:
                         response = (
                             f"{llm_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
@@ -706,8 +704,8 @@ def chat():
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
-                    chat.paso_actual = "pregunta_consultar"
-                    save_conversation(response, "manejo_post_cita", message)
+                    state.paso_actual = "pregunta_consultar"
+                    save_conversation(response, "manejo_post_cita", message, state=state)
                     return jsonify(
                         {
                             "response": response,
@@ -751,7 +749,7 @@ def chat():
             "consulta_adicional",
         ]:
             context = (
-                f"Usuario: {getattr(chat, 'user_name', 'usuario')}. Pregunta libre."
+                f"Usuario: {getattr(state, 'user_name', 'usuario')}. Pregunta libre."
             )
             rag_response = None
             if RAG_AVAILABLE:
@@ -770,7 +768,7 @@ def chat():
             if rag_response:
                 response = f"{rag_response}\n\n¿Hay algo más en lo que pueda asistirle?"
             else:
-                llm_resp = get_llm_response(message, context=context)
+                llm_resp = get_llm_response(message, context=context, state=state)
                 if llm_resp:
                     response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
                 else:
@@ -804,12 +802,12 @@ def chat():
             "confirmacion_cita_opcion",
             "rechazo_horario",
         ]:
-            name = getattr(chat, "user_name", "")
-            if hasattr(chat, "appointment_time"):
+            name = getattr(state, "user_name", "")
+            if hasattr(state, "appointment_time"):
                 response = f"Entendido, {name}. Un abogado se comunicará contigo en la fecha acordada. Saludos cordiales."
             else:
                 response = f"Entendido, {name}. Un abogado se comunicará contigo a la brevedad. Saludos cordiales."
-            limpiar_estado_chat()
+            limpiar_estado_chat(state)
             return jsonify(
                 {
                     "response": response,
@@ -821,12 +819,12 @@ def chat():
 
         if accion_boton:
             if accion_boton == "aceptar_cita":
-                chat.paso_actual = "propuesta_horario"
+                state.paso_actual = "propuesta_horario"
                 cita_disp = get_next_appointment()
-                chat.appointment_time = cita_disp["mensaje_completo"]
-                chat.appointment_fecha_str = cita_disp["fecha_str"]
-                chat.appointment_hora = cita_disp["hora"]
-                response = f"Perfecto, {getattr(chat, 'user_name', 'usuario')}. Te propongo {cita_disp['mensaje_completo']}. ¿Te parece bien esa fecha y hora?"
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                response = f"Perfecto, {getattr(state, 'user_name', 'usuario')}. Te propongo {cita_disp['mensaje_completo']}. ¿Te parece bien esa fecha y hora?"
                 buttons = [
                     {
                         "texto": "Sí, confirmo",
@@ -849,8 +847,8 @@ def chat():
                 )
 
             if accion_boton == "rechazar_cita":
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
                 response = f"Entendido, {name}. Uno de nuestros abogados especializados se contactará con usted según los datos agendados y le ampliará toda la información al respecto. ¿Hay alguna otra cosa en la que pueda asistirle?"
                 buttons = [
                     {
@@ -872,7 +870,7 @@ def chat():
             if accion_boton == "continuar":
                 paso_actual = obtener_paso(paso_actual_id)
                 if paso_actual:
-                    datos = obtener_estado_chat()
+                    datos = obtener_estado_chat(state)
                     response = formatear_mensaje(paso_actual, datos)
                     return jsonify(
                         {
@@ -896,12 +894,13 @@ def chat():
                 guardar_estado_campo(
                     "user_role",
                     "demandado" if accion_boton == "demandado" else "demandante",
+                    state=state
                 )
-                chat.paso_actual = "categorizacion_caso"
+                state.paso_actual = "categorizacion_caso"
                 paso_cat = obtener_paso("categorizacion_caso")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_cat, datos)
-                save_conversation(response, "identificacion_rol", message)
+                save_conversation(response, "identificacion_rol", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -912,8 +911,8 @@ def chat():
                 )
 
             if accion_boton in ["civil", "laboral", "penal"]:
-                guardar_estado_campo("case_category", accion_boton)
-                chat.paso_actual = "verificacion_pruebas"
+                guardar_estado_campo("case_category", accion_boton, state=state)
+                state.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
                 ejemplos = {
                     "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
@@ -924,8 +923,8 @@ def chat():
                     response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[accion_boton]}"
                 else:
                     context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
-                    response = get_llm_response(message, context=context) or f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
-                save_conversation(response, "categorizacion_caso", message)
+                    response = get_llm_response(message, context=context, state=state) or f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
+                save_conversation(response, "categorizacion_caso", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -936,11 +935,11 @@ def chat():
                 )
 
             if accion_boton == "no_definida":
-                chat.paso_actual = "descripcion_categoria"
+                state.paso_actual = "descripcion_categoria"
                 paso_desc_cat = obtener_paso("descripcion_categoria")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_desc_cat, datos)
-                save_conversation(response, "categorizacion_caso", message)
+                save_conversation(response, "categorizacion_caso", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -951,14 +950,14 @@ def chat():
                 )
 
             if accion_boton in ["si_pruebas", "no_pruebas"]:
-                guardar_estado_campo("has_evidence", accion_boton)
+                guardar_estado_campo("has_evidence", accion_boton, state=state)
                 # Si ya tiene descripción (vino de "no_definida"/descripcion_categoria), saltar descripcion_caso
-                ya_tiene_descripcion = bool(getattr(chat, "case_description", "").strip())
+                ya_tiene_descripcion = bool(getattr(state, "case_description", "").strip())
                 if ya_tiene_descripcion:
-                    chat.paso_actual = "captura_correo"
+                    state.paso_actual = "captura_correo"
                     paso_correo = obtener_paso("captura_correo")
-                    response = formatear_mensaje(paso_correo, obtener_estado_chat())
-                    save_conversation(response, "verificacion_pruebas", message)
+                    response = formatear_mensaje(paso_correo, obtener_estado_chat(state))
+                    save_conversation(response, "verificacion_pruebas", message, state=state)
                     return jsonify(
                         {
                             "response": response,
@@ -967,14 +966,14 @@ def chat():
                             "step": "captura_correo",
                         }
                     )
-                chat.paso_actual = "descripcion_caso"
+                state.paso_actual = "descripcion_caso"
                 paso_desc = obtener_paso("descripcion_caso")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 if accion_boton == "si_pruebas":
                     response = "Excelente. Cuénteme brevemente qué sucedió en su caso — con eso podré entender mejor su situación. También puede adjuntar los archivos que considere relevantes (documentos, fotos, audios, etc.)."
                 else:
                     response = formatear_mensaje(paso_desc, datos)
-                save_conversation(response, "verificacion_pruebas", message)
+                save_conversation(response, "verificacion_pruebas", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -987,16 +986,16 @@ def chat():
 
             if accion_boton == "confirmar":
                 cita_disp = get_next_appointment()
-                chat.appointment_time = cita_disp["mensaje_completo"]
-                chat.appointment_fecha_str = cita_disp["fecha_str"]
-                chat.appointment_hora = cita_disp["hora"]
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
-                email = getattr(chat, "user_email", "")
-                phone = getattr(chat, "user_phone", "")
-                category = getattr(chat, "case_category", "")
-                description = getattr(chat, "case_description", "")
-                role = getattr(chat, "user_role", "")
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
+                description = getattr(state, "case_description", "")
+                role = getattr(state, "user_role", "")
 
                 # Generar código y URL únicos para el agente de voz
                 codigo_acceso = generar_codigo_acceso()
@@ -1010,7 +1009,7 @@ def chat():
                         "rol": role,
                         "categoria": category,
                         "descripcion_caso": description,
-                        "tiene_pruebas": getattr(chat, "has_evidence", ""),
+                        "tiene_pruebas": getattr(state, "has_evidence", ""),
                         "paso_actual": "confirmacion_cita",
                     }
                 )
@@ -1075,9 +1074,9 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 )
 
             if accion_boton == "rechazar":
-                chat.paso_actual = "rechazo_horario"
+                state.paso_actual = "rechazo_horario"
                 paso_rechazo = obtener_paso("rechazo_horario")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_rechazo, datos)
                 return jsonify(
                     {
@@ -1090,8 +1089,8 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
 
             if accion_boton == "otra_fecha":
                 # Buscar la siguiente cita DESPUÉS de la que se ofreció primero
-                fecha_actual = getattr(chat, "appointment_fecha_str", None)
-                hora_actual = getattr(chat, "appointment_hora", None)
+                fecha_actual = getattr(state, "appointment_fecha_str", None)
+                hora_actual = getattr(state, "appointment_hora", None)
                 if fecha_actual and hora_actual:
                     cita_disp = obtener_cita_despues_de(
                         fecha_actual, hora_actual,
@@ -1109,14 +1108,14 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                         "step": "sin_disponibilidad",
                     })
 
-                chat.appointment_time = cita_disp["mensaje_completo"]
-                chat.appointment_fecha_str = cita_disp["fecha_str"]
-                chat.appointment_hora = cita_disp["hora"]
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
-                email = getattr(chat, "user_email", "")
-                phone = getattr(chat, "user_phone", "")
-                category = getattr(chat, "case_category", "")
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
 
                 # Generar código y URL únicos para el agente de voz
                 codigo_acceso = generar_codigo_acceso()
@@ -1129,7 +1128,7 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                         "nombre": name,
                         "telefono": phone,
                         "categoria": category,
-                        "descripcion_caso": getattr(chat, "case_description", ""),
+                        "descripcion_caso": getattr(state, "case_description", ""),
                         "fecha_cita": cita_disp["fecha_str"],
                         "hora_cita": cita_disp["hora"],
                         "estado": "confirmada",
@@ -1184,8 +1183,8 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 )
 
             if accion_boton == "contactar_abogado":
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
                 response = f"Perfecto, {name}. Un abogado se comunicará contigo a la brevedad para atender tu caso de forma personalizada. ¿Hay algo más en lo que pueda ayudarte?"
                 buttons = [
                     {
@@ -1209,8 +1208,8 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 "consulta_adicional",
                 "pregunta_consultar",
             ]:
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
                 response = f"Entendido, {name}. Listo, he registrado tu consulta adicional. Un abogado especializado se pondrá en contacto contigo según la cita agendada y te brindará toda la información que necesitas. ¿Hay algo más en lo que pueda ayudarte?"
                 buttons = [
                     {
@@ -1230,10 +1229,10 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 )
 
             if accion_boton == "despedida":
-                name = getattr(chat, "user_name", "")
+                name = getattr(state, "user_name", "")
                 response = f"Gracias a usted por confiar en nosotros. Ha sido un gusto atenderle. Un abogado especializado se pondrá en contacto con usted en la fecha acordada.\n\nEsta chat se finalizará automáticamente. ¡Que tenga un excelente día!"
-                limpiar_estado_chat()
-                save_conversation(response, "despedida", message)
+                limpiar_estado_chat(state)
+                save_conversation(response, "despedida", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1246,12 +1245,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
         if paso_actual_id == "saludo_inicial":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
-                chat.user_name = result
-                chat.paso_actual = "identificacion_rol"
+                state.user_name = result
+                state.paso_actual = "identificacion_rol"
                 paso_rol = obtener_paso("identificacion_rol")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_rol, datos)
-                save_conversation(response, "saludo_inicial", message)
+                save_conversation(response, "saludo_inicial", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1273,12 +1272,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
         if paso_actual_id == "descripcion_caso":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
-                chat.case_description = result
-                chat.paso_actual = "captura_correo"
+                state.case_description = result
+                state.paso_actual = "captura_correo"
                 paso_correo = obtener_paso("captura_correo")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_correo, datos)
-                save_conversation(response, "descripcion_caso", message)
+                save_conversation(response, "descripcion_caso", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1300,12 +1299,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
         if paso_actual_id == "descripcion_categoria":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
-                chat.case_description = result
+                state.case_description = result
                 categoria_detectada = categorizar_caso_con_llm(result)
                 if categoria_detectada not in ["civil", "laboral", "penal"]:
                     categoria_detectada = "civil"
-                guardar_estado_campo("case_category", categoria_detectada)
-                chat.paso_actual = "verificacion_pruebas"
+                guardar_estado_campo("case_category", categoria_detectada, state=state)
+                state.paso_actual = "verificacion_pruebas"
                 paso_pruebas = obtener_paso("verificacion_pruebas")
                 ejemplos = {
                     "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
@@ -1316,8 +1315,8 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                     response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[categoria_detectada]}"
                 else:
                     context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirma la categoría y pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
-                    response = get_llm_response(message, context=context) or f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
-                save_conversation(response, "descripcion_categoria", message)
+                    response = get_llm_response(message, context=context, state=state) or f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
+                save_conversation(response, "descripcion_categoria", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1339,12 +1338,12 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
         if paso_actual_id == "captura_correo":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
-                chat.user_email = result
-                chat.paso_actual = "captura_telefono"
+                state.user_email = result
+                state.paso_actual = "captura_telefono"
                 paso_tel = obtener_paso("captura_telefono")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_tel, datos)
-                save_conversation(response, "captura_correo", message)
+                save_conversation(response, "captura_correo", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1366,9 +1365,9 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
         if paso_actual_id == "captura_telefono":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
-                chat.user_phone = result
-                chat.paso_actual = "confirmacion_cita"
-                datos = obtener_estado_chat()
+                state.user_phone = result
+                state.paso_actual = "confirmacion_cita"
+                datos = obtener_estado_chat(state)
                 response = f"Perfecto, ya tengo toda la información necesaria para orientarte en tu proceso. ¿Te parece bien si agendamos una cita con uno de nuestros abogados especializados para que te ayude con tu caso?"
                 buttons = [
                     {
@@ -1382,7 +1381,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "descripcion": "",
                     },
                 ]
-                save_conversation(response, "captura_telefono", message)
+                save_conversation(response, "captura_telefono", message, state=state)
                 return jsonify(
                     {
                         "response": response,
@@ -1406,16 +1405,16 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                 w in message_lower for w in ["sí", "si", "ok", "confirmo", "de acuerdo"]
             ):
                 cita_disp = get_next_appointment()
-                chat.appointment_time = cita_disp["mensaje_completo"]
-                chat.appointment_fecha_str = cita_disp["fecha_str"]
-                chat.appointment_hora = cita_disp["hora"]
-                chat.paso_actual = "manejo_post_cita"
-                name = getattr(chat, "user_name", "")
-                email = getattr(chat, "user_email", "")
-                phone = getattr(chat, "user_phone", "")
-                category = getattr(chat, "case_category", "")
-                description = getattr(chat, "case_description", "")
-                role = getattr(chat, "user_role", "")
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
+                description = getattr(state, "case_description", "")
+                role = getattr(state, "user_role", "")
 
                 guardar_usuario(
                     {
@@ -1425,7 +1424,7 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                         "rol": role,
                         "categoria": category,
                         "descripcion_caso": description,
-                        "tiene_pruebas": getattr(chat, "has_evidence", ""),
+                        "tiene_pruebas": getattr(state, "has_evidence", ""),
                         "paso_actual": "confirmacion_cita",
                     }
                 )
@@ -1468,9 +1467,9 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 w in message_lower
                 for w in ["no", "no me viene", "otro horario", "otra hora"]
             ):
-                chat.paso_actual = "rechazo_horario"
+                state.paso_actual = "rechazo_horario"
                 paso_rechazo = obtener_paso("rechazo_horario")
-                datos = obtener_estado_chat()
+                datos = obtener_estado_chat(state)
                 response = formatear_mensaje(paso_rechazo, datos)
                 return jsonify(
                     {
@@ -1483,39 +1482,39 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
 
         if paso_actual_id == "confirmacion_cita_opcion":
             # Si no tiene cita asignada, asignar la siguiente disponible
-            if not getattr(chat, "appointment_time", None):
+            if not getattr(state, "appointment_time", None):
                 cita_disp = get_next_appointment()
-                chat.appointment_time = cita_disp["mensaje_completo"]
-                chat.appointment_fecha_str = cita_disp["fecha_str"]
-                chat.appointment_hora = cita_disp["hora"]
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
 
             # Generar código y URL si no existen
-            if not getattr(chat, "codigo_acceso", None):
-                chat.codigo_acceso = generar_codigo_acceso()
-                chat.url_agente_voz, chat.url_token = generar_url_agente_voz()
+            if not getattr(state, "codigo_acceso", None):
+                state.codigo_acceso = generar_codigo_acceso()
+                state.url_agente_voz, state.url_token = generar_url_agente_voz()
 
-            name = getattr(chat, "user_name", "")
-            email = getattr(chat, "user_email", "")
-            phone = getattr(chat, "user_phone", "")
-            appointment_date = getattr(chat, "appointment_time", "")
+            name = getattr(state, "user_name", "")
+            email = getattr(state, "user_email", "")
+            phone = getattr(state, "user_phone", "")
+            appointment_date = getattr(state, "appointment_time", "")
 
             # Guardar la cita en la BD
-            category = getattr(chat, "case_category", "")
-            fecha_str = getattr(chat, "appointment_fecha_str", "")
-            hora_str = getattr(chat, "appointment_hora", "")
+            category = getattr(state, "case_category", "")
+            fecha_str = getattr(state, "appointment_fecha_str", "")
+            hora_str = getattr(state, "appointment_hora", "")
             exito_cita, cita_id = guardar_cita(
                 {
                     "email": email,
                     "nombre": name,
                     "telefono": phone,
                     "categoria": category,
-                    "descripcion_caso": getattr(chat, "case_description", ""),
+                    "descripcion_caso": getattr(state, "case_description", ""),
                     "fecha_cita": fecha_str,
                     "hora_cita": hora_str,
                     "estado": "confirmada",
-                    "codigo_acceso": chat.codigo_acceso,
-                    "url_token": chat.url_token,
-                    "url_agente_voz": chat.url_agente_voz,
+                    "codigo_acceso": state.codigo_acceso,
+                    "url_token": state.url_token,
+                    "url_agente_voz": state.url_agente_voz,
                 }
             )
 
@@ -1528,8 +1527,8 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 "categoria": category,
                 "fecha_cita": fecha_str,
                 "hora_cita": hora_str,
-                "codigo_acceso": chat.codigo_acceso,
-                "url_agente_voz": chat.url_agente_voz,
+                "codigo_acceso": state.codigo_acceso,
+                "url_agente_voz": state.url_agente_voz,
             }
             try:
                 app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
@@ -1554,7 +1553,7 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 },
                 {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
             ]
-            save_conversation(response, "confirmacion_cita_opcion", message)
+            save_conversation(response, "confirmacion_cita_opcion", message, state=state)
             return jsonify(
                 {
                     "response": response,
@@ -1570,7 +1569,7 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
-                    chat.paso_actual = "pregunta_consultar"
+                    state.paso_actual = "pregunta_consultar"
                     return jsonify(
                         {
                             "response": response,
@@ -1585,12 +1584,12 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
             if paso and paso.get("mensaje"):
                 response = paso.get("mensaje", "")
                 buttons = paso.get("botones")
-                chat.paso_actual = "pregunta_consultar"
+                state.paso_actual = "pregunta_consultar"
                 buttons = paso.get("botones")
                 guardar_consulta_adicional(
                     {
-                        "email": getattr(chat, "user_email", ""),
-                        "nombre": getattr(chat, "user_name", ""),
+                        "email": getattr(state, "user_email", ""),
+                        "nombre": getattr(state, "user_name", ""),
                         "consulta": message,
                     }
                 )
@@ -1609,8 +1608,8 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                 if paso and paso.get("mensaje"):
                     response = paso.get("mensaje", "")
                     buttons = paso.get("botones")
-                    chat.paso_actual = "pregunta_consultar"
-                    save_conversation(response, "pregunta_consultar", message)
+                    state.paso_actual = "pregunta_consultar"
+                    save_conversation(response, "pregunta_consultar", message, state=state)
                     return jsonify(
                         {
                             "response": response,
@@ -1621,11 +1620,11 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                     )
             pregunta = message or ""
             context = f"Usuario adicional: {pregunta}"
-            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES.replace(AGENTE_NOMBRE, getattr(chat, "agent_name", AGENTE_NOMBRE))
+            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES.replace(AGENTE_NOMBRE, getattr(state, "agent_name", AGENTE_NOMBRE))
             app.logger.info(
                 f"pregunta_consultar: pregunta='{pregunta}', OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
             )
-            llm_resp = get_llm_response(pregunta, context=llm_context)
+            llm_resp = get_llm_response(pregunta, context=llm_context, state=state)
             app.logger.info(
                 f"pregunta_consultar: llm_resp={llm_resp[:100] if llm_resp else 'None'}"
             )
@@ -1649,7 +1648,7 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                     "step": "pregunta_consultar",
                 }
             )
-        save_conversation(response, paso_actual_id, message)
+        save_conversation(response, paso_actual_id, message, state=state)
 
         response = "¿Hay algo más en lo que pueda ayudarte?"
         buttons = [
@@ -1673,6 +1672,22 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
         app.logger.error(f"Exception in chat: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+
+
+@app.after_request
+def add_session_id_to_response(response):
+    """Inyecta session_id en todas las respuestas JSON del chat."""
+    if request.path == "/api/chat" and response.content_type and "application/json" in response.content_type:
+        try:
+            data = response.get_json(silent=True)
+            if data and "session_id" not in data:
+                sid = getattr(g, "resolved_session_id", None)
+                if sid:
+                    data["session_id"] = sid
+                    response.set_data(json.dumps(data))
+        except Exception:
+            pass
+    return response
 
 @app.route("/api/knowledge/upload", methods=["POST"])
 def upload_knowledge():
@@ -1765,8 +1780,19 @@ def health_check():
             "llm_model": llm_model,
             "tts_voice": TTS_VOICE,
             "service": f"edge-tts ({TTS_VOICE}) + {llm_model}",
+            "active_sessions": ChatSession.active_count(),
+            "multi_user": True,
         }
     )
+
+
+@app.route("/api/sessions", methods=["GET"])
+def active_sessions():
+    """Endpoint para monitorear sesiones activas."""
+    return jsonify({
+        "active_sessions": ChatSession.active_count(),
+        "multi_user_enabled": True,
+    })
 
 
 @app.route("/api/test-gemini", methods=["GET"])
@@ -1925,26 +1951,6 @@ def list_voices():
     return jsonify({"voices": voices, "current": TTS_VOICE})
 
 
-def save_conversation(response, paso_actual, user_message=""):
-    try:
-        email = getattr(chat, "user_email", "")
-        nombre = getattr(chat, "user_name", "")
-        app.logger.info(
-            f"save_conversation: email={email}, nombre={nombre}, paso={paso_actual}, msg_len={len(user_message or '')}"
-        )
-        datos = {
-            "email": email,
-            "nombre": nombre,
-            "mensaje_usuario": user_message if user_message else "",
-            "respuesta_agente": response,
-            "paso": paso_actual,
-        }
-        resultado = guardar_conversacion(datos)
-        app.logger.info(f"save_conversation resultado: {resultado}")
-    except Exception as e:
-        app.logger.error(f"Error saving conversation: {e}")
-
-
 @app.route("/api/test-email", methods=["POST"])
 @app.route("/api/test-smtp", methods=["POST"])
 def test_email():
@@ -1967,7 +1973,7 @@ def test_email():
         }), 400
 
     data = request.get_json(silent=True) or {}
-    destinatario = data.get("email", "ingjcesarmojica@gmail.com")
+    destinatario = data.get("email", "")
 
     html = (
         "<h2>Prueba de correo - TusAbogados.com</h2>"
@@ -1998,6 +2004,15 @@ if __name__ == "__main__":
             )
     except Exception as e:
         app.logger.error(f"Error reprogramando recordatorios: {e}")
+
+    # Iniciar verificador periodico de recordatorios (sobrevive reinicios)
+    try:
+        iniciar_verificador_recordatorios(intervalo=120)
+    except Exception as e:
+        app.logger.error(f"Error iniciando verificador: {e}")
+
+    # Iniciar limpieza de sesiones expiradas
+    ChatSession._start_cleanup_if_needed()
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

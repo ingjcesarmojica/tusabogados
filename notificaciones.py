@@ -454,8 +454,8 @@ def recordatorios_pendientes():
 
 def iniciar_recordatorios_pendientes(citas_proximas):
     """
-    Al iniciar la aplicaciÃ³n, reprograma recordatorios para citas
-    que aÃºn no han pasado.
+    Al iniciar la aplicacion, reprograma recordatorios para citas
+    que aun no han pasado.
 
     citas_proximas: lista de dicts con datos de citas de la BD
     """
@@ -479,3 +479,33 @@ def iniciar_recordatorios_pendientes(citas_proximas):
 
     logger.info(f"{count} recordatorios reprogramados al iniciar")
     return count
+
+
+def iniciar_verificador_recordatorios(intervalo=120):
+    """
+    Hilo daemon que cada 'intervalo' segundos consulta la BD
+    y reprograma recordatorios pendientes no programados.
+    Esto hace que los recordatorios sobrevivan reinicios del servidor.
+    """
+    def _verificar():
+        import time as _time
+        while True:
+            try:
+                _time.sleep(intervalo)
+                # Importar aqui para evitar circular imports
+                from database import obtener_citas_proximas_para_recordatorio
+                citas = obtener_citas_proximas_para_recordatorio()
+                programados = 0
+                for cita in citas:
+                    cita_id = cita.get("cita_id", "")
+                    if cita_id and cita_id not in _timers_activos:
+                        if programar_recordatorio(cita):
+                            programados += 1
+                if programados > 0:
+                    logger.info(f"Verificador: {programados} recordatorios reprogramados")
+            except Exception as e:
+                logger.error(f"Error en verificador de recordatorios: {e}")
+
+    t = threading.Thread(target=_verificar, daemon=True)
+    t.start()
+    logger.info(f"Verificador de recordatorios iniciado (intervalo: {intervalo}s)")
