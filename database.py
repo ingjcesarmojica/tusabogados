@@ -1,9 +1,15 @@
 """
 Módulo Supabase - Base de datos en la nube para TusAbogados.com
 Almacena datos de usuarios, casos y citas.
+
+Seguridad:
+- Usar SERVICE_ROLE key (no anon key) en SUPABASE_KEY
+- RLS habilitado en todas las tablas
+- Validación de datos antes de insertar
 """
 
 import os
+import re
 import logging
 from datetime import datetime
 
@@ -13,6 +19,30 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 _supabase = None
+
+
+# ── Validación de datos ─────────────────────────────────────────────
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
+_PHONE_RE = re.compile(r"^[0-9]{10}$")
+
+
+def _validar_email(email):
+    """Retorna True si el email tiene formato válido."""
+    return bool(email) and bool(_EMAIL_RE.match(email.strip()))
+
+
+def _validar_telefono(telefono):
+    """Retorna True si el teléfono tiene 10 dígitos."""
+    digits = re.sub(r"[^0-9]", "", str(telefono))
+    return len(digits) == 10
+
+
+def _sanitizar(texto):
+    """Limpia texto básico para evitar inyección de caracteres peligrosos."""
+    if not isinstance(texto, str):
+        return texto
+    # Eliminar caracteres nulos y control peligrosos
+    return texto.replace("\x00", "").strip()
 
 
 def get_supabase():
@@ -46,16 +76,25 @@ def guardar_usuario(datos):
     if sb is None:
         return False, "Supabase no disponible"
 
+    # ── Validaciones ──────────────────────────────────────────────────
+    email = _sanitizar(datos.get("email", ""))
+    if not _validar_email(email):
+        return False, f"Email inválido: {email}"
+
+    nombre = _sanitizar(datos.get("nombre", ""))
+    if not nombre or len(nombre) < 2:
+        return False, "Nombre requerido (mínimo 2 caracteres)"
+
     try:
         registro = {
-            "nombre": datos.get("nombre", ""),
-            "email": datos.get("email", ""),
-            "telefono": datos.get("telefono", ""),
-            "rol": datos.get("rol", ""),
-            "categoria": datos.get("categoria", ""),
-            "descripcion_caso": datos.get("descripcion_caso", ""),
+            "nombre": nombre,
+            "email": email,
+            "telefono": _sanitizar(datos.get("telefono", "")),
+            "rol": _sanitizar(datos.get("rol", "")),
+            "categoria": _sanitizar(datos.get("categoria", "")),
+            "descripcion_caso": _sanitizar(datos.get("descripcion_caso", "")),
             "tiene_pruebas": datos.get("tiene_pruebas", False),
-            "paso_actual": datos.get("paso_actual", ""),
+            "paso_actual": _sanitizar(datos.get("paso_actual", "")),
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -77,6 +116,7 @@ def guardar_usuario(datos):
 def guardar_cita(datos):
     """
     Guarda una cita en la tabla 'citas'.
+    Verifica que no exista otra cita en la misma fecha/hora antes de insertar.
     datos: dict con campos de la cita.
     Retorna (True, id) o (False, error).
     """
@@ -84,19 +124,44 @@ def guardar_cita(datos):
     if sb is None:
         return False, "Supabase no disponible"
 
+    # ── Validaciones ──────────────────────────────────────────────────
+    email = _sanitizar(datos.get("email", ""))
+    if not _validar_email(email):
+        return False, f"Email inválido: {email}"
+
+    fecha_cita = datos.get("fecha_cita", "")
+    hora_cita = _sanitizar(datos.get("hora_cita", ""))
+    if not fecha_cita or not hora_cita:
+        return False, "Fecha y hora de cita son requeridas"
+
+    # ── Verificar que no haya doble agendamiento ──────────────────────
+    try:
+        existentes = (
+            sb.table("citas")
+            .select("id")
+            .eq("fecha_cita", fecha_cita)
+            .eq("hora_cita", hora_cita)
+            .in_("estado", ["confirmada", "reprogramada"])
+            .execute()
+        )
+        if hasattr(existentes, "data") and existentes.data:
+            return False, f"La fecha {fecha_cita} a las {hora_cita} ya está ocupada"
+    except Exception as e:
+        logger.warning(f"Error verificando disponibilidad: {e}")
+
     try:
         registro = {
-            "usuario_email": datos.get("email", ""),
-            "usuario_nombre": datos.get("nombre", ""),
-            "usuario_telefono": datos.get("telefono", ""),
-            "categoria": datos.get("categoria", ""),
-            "descripcion_caso": datos.get("descripcion_caso", ""),
-            "fecha_cita": datos.get("fecha_cita", ""),
-            "hora_cita": datos.get("hora_cita", ""),
-            "estado": datos.get("estado", "confirmada"),
-            "codigo_acceso": datos.get("codigo_acceso", ""),
-            "url_token": datos.get("url_token", ""),
-            "url_agente_voz": datos.get("url_agente_voz", ""),
+            "usuario_email": email,
+            "usuario_nombre": _sanitizar(datos.get("nombre", "")),
+            "usuario_telefono": _sanitizar(datos.get("telefono", "")),
+            "categoria": _sanitizar(datos.get("categoria", "")),
+            "descripcion_caso": _sanitizar(datos.get("descripcion_caso", "")),
+            "fecha_cita": fecha_cita,
+            "hora_cita": hora_cita,
+            "estado": _sanitizar(datos.get("estado", "confirmada")),
+            "codigo_acceso": _sanitizar(datos.get("codigo_acceso", "")),
+            "url_token": _sanitizar(datos.get("url_token", "")),
+            "url_agente_voz": _sanitizar(datos.get("url_agente_voz", "")),
             "created_at": datetime.utcnow().isoformat(),
         }
 
@@ -128,19 +193,15 @@ def guardar_conversacion(datos):
 
     try:
         registro = {
-            "usuario_email": datos.get("email", ""),
-            "usuario_nombre": datos.get("nombre", ""),
-            "mensaje_usuario": datos.get("mensaje_usuario", ""),
-            "respuesta_agente": datos.get("respuesta_agente", ""),
-            "paso": datos.get("paso", ""),
+            "usuario_email": _sanitizar(datos.get("email", "")),
+            "usuario_nombre": _sanitizar(datos.get("nombre", "")),
+            "mensaje_usuario": _sanitizar(datos.get("mensaje_usuario", "")),
+            "respuesta_agente": _sanitizar(datos.get("respuesta_agente", "")),
+            "paso": _sanitizar(datos.get("paso", "")),
             "created_at": datetime.utcnow().isoformat(),
         }
 
-        logger.info(f"guardar_conversacion: registro={registro}")
         result = sb.table("conversaciones").insert(registro).execute()
-        logger.info(
-            f"guardar_conversacion: result.data={result.data if hasattr(result, 'data') else 'no data attr'}"
-        )
 
         conv_id = None
         if hasattr(result, "data") and result.data:
@@ -163,9 +224,9 @@ def guardar_consulta_adicional(datos):
 
     try:
         registro = {
-            "usuario_email": datos.get("email", ""),
-            "usuario_nombre": datos.get("nombre", ""),
-            "consulta": datos.get("consulta", ""),
+            "usuario_email": _sanitizar(datos.get("email", "")),
+            "usuario_nombre": _sanitizar(datos.get("nombre", "")),
+            "consulta": _sanitizar(datos.get("consulta", "")),
             "created_at": datetime.utcnow().isoformat(),
         }
 

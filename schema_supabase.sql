@@ -65,12 +65,45 @@ CREATE INDEX IF NOT EXISTS idx_citas_estado ON citas(estado);
 CREATE INDEX IF NOT EXISTS idx_conversaciones_email ON conversaciones(usuario_email);
 CREATE INDEX IF NOT EXISTS idx_consultas_email ON consultas_adicionales(usuario_email);
 
--- ── RLS (Row Level Security) - Opcional ─────────────────────────────
--- Habilitar si se usa autenticación con Supabase Auth
--- ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE citas ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE conversaciones ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE consultas_adicionales ENABLE ROW LEVEL SECURITY;
+-- ══════════════════════════════════════════════════════════════════════
+-- RLS (Row Level Security) — PROTECCIÓN DE DATOS
+-- ══════════════════════════════════════════════════════════════════════
+--
+-- CÓMO FUNCIONA:
+-- - Habilitar RLS bloquea TODOS los accesos por defecto
+-- - La service_role key (usada en el backend) BYPASEA el RLS
+-- - La anon key queda BLOQUEADA salvo que se creen políticas explícitas
+-- - Esto protege contra filtraciones de la anon key
+--
+-- IMPORTANTE: En tu .env usa la SERVICE_ROLE key (no la anon):
+-- SUPABASE_KEY=eyJhb... (service_role, empieza igual pero con más permisos)
+-- Para obtenerla: Supabase Dashboard → Settings → API → service_role
+-- ══════════════════════════════════════════════════════════════════════
+
+-- ── Habilitar RLS en todas las tablas ───────────────────────────────
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE citas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversaciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE consultas_adicionales ENABLE ROW LEVEL SECURITY;
+
+-- ── Política: Bloquear todo acceso anónimo (anon key) ───────────────
+-- La service_role key bypassa estas políticas automáticamente.
+-- Si alguien obtiene la anon key, NO podrá leer ni escribir nada.
+CREATE POLICY "usuarios_deny_anon" ON usuarios
+    FOR ALL USING (false) WITH CHECK (false);
+
+CREATE POLICY "citas_deny_anon" ON citas
+    FOR ALL USING (false) WITH CHECK (false);
+
+CREATE POLICY "conversaciones_deny_anon" ON conversaciones
+    FOR ALL USING (false) WITH CHECK (false);
+
+CREATE POLICY "consultas_adicionales_deny_anon" ON consultas_adicionales
+    FOR ALL USING (false) WITH CHECK (false);
+
+-- ══════════════════════════════════════════════════════════════════════
+-- FIN DEL RLS
+-- ══════════════════════════════════════════════════════════════════════
 
 -- ── Vista resumen de citas ──────────────────────────────────────────
 CREATE OR REPLACE VIEW vista_citas_pendientes AS
