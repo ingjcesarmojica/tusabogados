@@ -32,7 +32,7 @@ class ChatState:
         self.appointment_hora = ""
         self.user_role = ""
         self.case_category = ""
-        self.paso_actual = ""
+        self.paso_actual = "saludo_inicial"
         self.datos_usuario = {}
         self.has_evidence = ""
         self.agent_name = ""
@@ -56,7 +56,7 @@ class ChatState:
         self.appointment_hora = ""
         self.user_role = ""
         self.case_category = ""
-        self.paso_actual = ""
+        self.paso_actual = "saludo_inicial"
         self.datos_usuario = {}
         self.has_evidence = ""
         self.codigo_acceso = ""

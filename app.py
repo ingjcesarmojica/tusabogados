@@ -592,10 +592,10 @@ def chat():
             or message_lower.startswith("para que ")
         )
 
-        paso_actual_id = getattr(state, "paso_actual", "saludo_inicial")
+        paso_actual_id = getattr(state, "paso_actual", None) or "saludo_inicial"
         paso_actual = obtener_paso(paso_actual_id)
 
-        if not hasattr(state, "paso_actual"):
+        if not paso_actual:
             limpiar_estado_chat(state)
             state.paso_actual = "saludo_inicial"
             paso = obtener_paso("saludo_inicial")
@@ -609,20 +609,27 @@ def chat():
                 }
             )
 
+        # Re-saludo: solo si el paso actual realmente pide nombre (validar=="nombre")
+        # y el usuario NO está respondiendo con un nombre válido (2+ palabras sin
+        # palabras de saludo como nombre propio), reenviar el saludo.
         if is_greeting and paso_actual_id == "saludo_inicial":
-            limpiar_estado_chat(state)
-            state.paso_actual = "saludo_inicial"
-            state.datos_usuario = {}
-            paso = obtener_paso("saludo_inicial")
-            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
-            return jsonify(
-                {
-                    "response": response,
-                    "end_call": False,
-                    "buttons": None,
-                    "step": "saludo_inicial",
-                }
-            )
+            nombre_valido, _ = validar_respuesta(paso_actual, message)
+            if not nombre_valido:
+                # Realmente es un saludo, no un nombre → reenviar saludo
+                limpiar_estado_chat(state)
+                state.paso_actual = "saludo_inicial"
+                state.datos_usuario = {}
+                paso = obtener_paso("saludo_inicial")
+                response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "saludo_inicial",
+                    }
+                )
+            # Si el nombre es válido, caer al handler de saludo_inicial más abajo
 
         if paso_actual and paso_actual.get("fin"):
             if is_farewell or accion_boton == "despedida":
@@ -1648,9 +1655,14 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                     "step": "pregunta_consultar",
                 }
             )
-        save_conversation(response, paso_actual_id, message, state=state)
+        save_conversation("", paso_actual_id, message, state=state)
 
-        response = "¿Hay algo más en lo que pueda ayudarte?"
+        # Fallback: si ningún handler capturó el mensaje, intentar con LLM o
+        # responder genéricamente
+        response = (
+            get_llm_response(message, state=state)
+            or "No estoy segura de entender tu mensaje. ¿Podrías reformularlo?"
+        )
         buttons = [
             {
                 "texto": "Sí, tengo otra duda",
