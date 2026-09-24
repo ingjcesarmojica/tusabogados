@@ -5,8 +5,9 @@ Colocar junto a app.py o referencia en Procfile.
 import multiprocessing
 import os
 
-# Bind
-bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
+# Bind — Render asigna el puerto via variable de entorno PORT
+port = os.environ.get('PORT', '10000')
+bind = f"0.0.0.0:{port}"
 
 # Workers: 2-4x CPU cores. En Render free tier con 512MB, 2 es optimo.
 workers = min(2, multiprocessing.cpu_count() + 1)
