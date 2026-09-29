@@ -1,0 +1,2030 @@
+import os
+import asyncio
+import base64
+import re
+import json
+import tempfile
+import threading
+import uuid
+import requests
+from flask import Flask, render_template, request, jsonify, g
+from flask_cors import CORS
+import logging
+import edge_tts
+import google.generativeai as genai
+from dotenv import load_dotenv
+from chat_session import ChatSession
+from guion import AGENTE_NOMBRE, PASOS, obtener_paso, formatear_mensaje, validar_respuesta
+from database import (
+    guardar_conversacion,
+    guardar_usuario,
+    guardar_cita,
+    guardar_consulta_adicional,
+    obtener_citas_por_fecha,
+    obtener_citas_proximas_para_recordatorio,
+)
+from calendario import (
+    obtener_siguiente_cita_disponible,
+    obtener_cita_despues_de,
+    formatear_fecha_completa,
+    proxima_cita,
+)
+from notificaciones import (
+    generar_codigo_acceso,
+    generar_url_agente_voz,
+    enviar_correo_confirmacion,
+    programar_recordatorio,
+    iniciar_recordatorios_pendientes,
+    iniciar_verificador_recordatorios,
+)
+
+
+try:
+    from rag import search_knowledge, add_pdf, list_documents, delete_document
+
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
+logging.basicConfig(level=logging.INFO)
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+    GEMINI_CONFIGURED = True
+else:
+    gemini_model = None
+    GEMINI_CONFIGURED = False
+    app.logger.warning(
+        "GEMINI_API_KEY no configurada - chat usar solo respuestas hardcoded"
+    )
+
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = os.environ.get(
+    "OPENROUTER_MODEL", "nvidia/nemotron-3-nano-30b-a3b"
+).strip()
+OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
+
+TTS_VOICE = os.environ.get("TTS_VOICE", "es-US-PalomaNeural")
+
+INSTRUCCIONES_PREGUNTAS_ADICIONALES = f"""INSTRUCCIONES PARA PREGUNTAS FUERA DEL GUION PRINCIPAL
+
+Si el usuario hace una pregunta que no está contemplada en el flujo conversacional definido (por ejemplo, dudas legales generales, preguntas sobre otras áreas del derecho, temas administrativos del despacho, o cualquier consulta que no corresponda al paso actual del guion), sigue estas reglas:
+
+1. NUNCA respondas "no sé" o "no puedo ayudarte" de forma seca. Mantén siempre un tono cálido, profesional y servicial, como lo haría {AGENTE_NOMBRE}, agente especializada en derecho de TusAbogados.com.
+
+2. CLASIFICA la pregunta antes de responder:
+
+   a) Si la pregunta es sobre TEMAS LEGALES GENERALES (dentro de tu base de conocimiento en conocimiento_tusabogados.md o el sistema RAG):
+      - Responde de forma clara, breve y en lenguaje sencillo (no técnico/jurídico), como lo haría un asesor explicando a alguien sin formación legal.
+      - Al final, aclara que se trata de información general y que un abogado humano debe revisar el caso específico para dar una asesoría formal y personalizada.
+      - Ejemplo de cierre: "Ten en cuenta que esto es una orientación general; para una asesoría precisa sobre tu situación, uno de nuestros abogados especializados debe revisar tu caso en detalle."
+
+   b) Si la pregunta es sobre un ÁREA LEGAL DISTINTA a la que ya está registrada en el caso del usuario (ej. el usuario ya registró un caso pero ahora pregunta sobre un tema de otra área):
+      - Indica que puedes ayudarle a registrar este nuevo caso también.
+      - Ofrece iniciar un nuevo proceso de categorización para esa consulta, sin perder los datos de contacto ya registrados.
+
+   c) Si la pregunta NO tiene relación con temas legales en absoluto (small talk, preguntas personales, temas ajenos al servicio):
+      - Redirige amablemente la conversación hacia el propósito del chat, sin ser cortante.
+      - Ejemplo: "Entiendo tu pregunta, pero mi función aquí es ayudarte con temas legales relacionados con tu caso. ¿Hay algo sobre tu situación legal en lo que pueda orientarte?"
+
+   d) Si la pregunta requiere información que NO tienes certeza (datos legales muy específicos, cifras, plazos legales exactos, jurisprudencia puntual, o cualquier dato que pueda estar desactualizado):
+      - NUNCA inventes ni des una cifra, plazo o dato legal específico si no tienes la certeza absoluta de que es correcto y está actualizado.
+      - En su lugar, indica que ese dato debe confirmarlo un abogado del equipo, y ofrece agendar o registrar la consulta para que se la resuelvan con precisión.
+
+3. LÍMITES ÉTICOS Y LEGALES (nunca los cruces):
+   - No brindes asesoría legal vinculante ni definitiva bajo ninguna circunstancia; tu rol es orientar e informar de forma general.
+   - No garantices resultados de casos, montos de indemnización, ni tiempos exactos de resolución judicial.
+   - No sustituyas la opinión de un abogado humano en decisiones legales importantes.
+   - Si detectas una situación de urgencia o riesgo (violencia, amenazas, riesgo físico inminente), prioriza indicarle al usuario que contacte a las autoridades correspondientes (línea de emergencia local) antes que continuar con el flujo comercial.
+
+4. TONO Y ESTILO:
+   - Usa siempre "tú" (no "usted"), en línea con el resto del guion.
+   - No repitas el nombre completo del usuario en cada respuesta.
+   - Sé breve: 2-4 líneas máximo por respuesta, salvo que la pregunta requiera una explicación más detallada.
+   - Si ya cuentas con el nombre, categoría de caso, correo o teléfono del usuario en la conversación, NO vuelvas a pedirlos."""
+
+
+async def generate_edge_tts(text, voice=None):
+    if voice is None:
+        voice = TTS_VOICE
+    communicate = edge_tts.Communicate(text, voice)
+    tmp_path = os.path.join(tempfile.gettempdir(), f"tts_{uuid.uuid4().hex}.mp3")
+    try:
+        await communicate.save(tmp_path)
+        with open(tmp_path, "rb") as f:
+            audio_data = f.read()
+        return base64.b64encode(audio_data).decode("utf-8")
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+
+_config_logged = False
+
+
+@app.before_request
+def log_config():
+    global _config_logged
+    if not _config_logged:
+        _config_logged = True
+        app.logger.info(
+            f"Gemini configured: {GEMINI_CONFIGURED}, OpenRouter configured: {OPENROUTER_CONFIGURED}, Model: {OPENROUTER_MODEL}"
+        )
+        app.logger.info(f"TTS Voice: {TTS_VOICE}")
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/speak", methods=["POST"])
+def speak_text():
+    try:
+        data = request.json
+        text = data.get("text", "")
+
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+
+        app.logger.info(f"Generando audio con edge-tts: {text[:50]}...")
+        audio_content = asyncio.run(generate_edge_tts(text))
+
+        return jsonify(
+            {
+                "audioContent": audio_content,
+                "audioUrl": f"data:audio/mp3;base64,{audio_content}",
+                "useBrowserTTS": False,
+                "engine": "edge-tts",
+            }
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error en edge-tts: {str(e)}")
+        return jsonify(
+            {
+                "audioContent": None,
+                "audioUrl": None,
+                "useBrowserTTS": True,
+                "text": text,
+                "error": str(e),
+            }
+        )
+
+
+def gemini_response(user_message, context="", state=None):
+    if not GEMINI_CONFIGURED or gemini_model is None:
+        return None
+    try:
+        agente = getattr(state, "agent_name", AGENTE_NOMBRE)
+        system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
+
+## Tu personalidad
+- Eres una abogada con experiencia en derecho civil, laboral y penal.
+- Hablas con profesionalismo y calidez, como lo haría un abogado real.
+- Usas terminología legal cuando es apropiado, pero la explicas en lenguaje sencillo.
+- Transmites confianza, seguridad y empatía.
+- Ejemplos de expresiones naturales: "Entiendo perfectamente su situación", "Esto es algo que manejamos con frecuencia", "Le comento que en estos casos...", "Es importante que sepa que...", "Procederemos a..."
+
+## Reglas para preguntas fuera del guion principal
+1. NUNCA respondas "no sé" o "no puedo ayudarte". Mantén un tono cálido y profesional.
+2. Clasifica la pregunta:
+   a) Temas legales generales: Responde breve, menciona que es información general y que un abogado debe revisar su caso.
+   b) Área legal distinta: Ofrece registrar el nuevo caso sin perder datos de contacto.
+   c) No es tema legal: Redirige amablemente a temas legales relevantes.
+   d) Data no confirmada: Nunca inventes. Ofrece que un abogado lo revise.
+3. Límite ético: Nunca des asesoría definitiva ni garantices resultados.
+4. Tono: Usa "tú", sé breve (2-4 líneas), no repitas datos que ya tienes.
+
+## Reglas generales
+- Responde en máximo 2-3 oraciones.
+- Si te preguntan algo de derecho, responde con precisión legal pero explicando en lenguaje simple.
+- Usa términos legales apropiados según el área del caso.
+- Siempre orienta pero NO das asesoría legal definitiva, eso lo hace el abogado humano.
+- Nunca uses expresiones informales como "genial", "perfecto", "listo", "dale". Usa: "Entiendo", "Comprendo", "Procederé a", "Le comento que"."""
+
+        rag_context = ""
+        if RAG_AVAILABLE:
+            try:
+                docs = search_knowledge(user_message, n_results=3)
+                if docs:
+                    rag_parts = []
+                    for d in docs:
+                        rag_parts.append(f"[Fuente: {d['source']}]\n{d['text']}")
+                    rag_context = (
+                        "\n\n## Base de conocimiento (usa esta información si es relevante):\n"
+                        + "\n---\n".join(rag_parts)
+                    )
+                    app.logger.info(f"RAG: {len(docs)} docs encontrados")
+                else:
+                    app.logger.info("RAG: 0 docs encontrados")
+            except Exception as e:
+                app.logger.error(f"RAG error: {e}")
+
+        prompt = f"""{system_prompt}{rag_context}
+
+Contexto: {context}
+Usuario: {user_message}"""
+        response = gemini_model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        app.logger.error(f"Error Gemini: {str(e)}")
+        return None
+
+
+def openrouter_response(user_message, context="", state=None):
+    if not OPENROUTER_CONFIGURED:
+        return None
+    try:
+        agente = getattr(state, "agent_name", AGENTE_NOMBRE)
+        system_prompt = f"""Eres {agente}, abogada virtual especializada en Derecho de TusAbogados.com.
+
+## Tu personalidad
+- Eres una abogada con experiencia en derecho civil, laboral y penal.
+- Hablas con profesionalismo y calidez, como lo haría un abogado real.
+- Usas terminología legal cuando es apropiado, pero la explicas en lenguaje sencillo.
+- Transmites confianza, seguridad y empatía.
+- Ejemplos de expresiones naturales: "Entiendo perfectamente su situación", "Esto es algo que manejamos con frecuencia", "Le comento que en estos casos...", "Es importante que sepa que...", "Procederemos a..."
+
+## Reglas para preguntas fuera del guion principal
+1. NUNCA respondas "no sé" o "no puedo ayudarte". Mantén un tono cálido y profesional.
+2. Clasifica la pregunta:
+   a) Temas legales generales: Responde breve, menciona que es información general y que un abogado debe revisar su caso.
+   b) Área legal distinta: Ofrece registrar el nuevo caso sin perder datos de contacto.
+   c) No es tema legal: Redirige amablemente a temas legales relevantes.
+   d) Data no confirmada: Nunca inventes. Ofrece que un abogado lo revise.
+3. Límite ético: Nunca des asesoría definitiva ni garantices resultados.
+4. Tono: Usa "tú", sé breve (2-4 líneas), no repitas datos que ya tienes.
+
+## Reglas generales
+- Responde en máximo 2-3 oraciones.
+- Si te preguntan algo de derecho, responde con precisión legal pero explicando en lenguaje simple.
+- Usa términos legales apropiados según el área del caso.
+- Siempre orienta pero NO das asesoría legal definitiva, eso lo hace el abogado humano.
+- Nunca uses expresiones informales como "genial", "perfecto", "listo", "dale". Usa: "Entiendo", "Comprendo", "Procederé a", "Le comento que"."""
+
+        rag_context = ""
+        if RAG_AVAILABLE:
+            try:
+                docs = search_knowledge(user_message, n_results=3)
+                if docs:
+                    rag_parts = []
+                    for d in docs:
+                        rag_parts.append(f"[Fuente: {d['source']}]\n{d['text']}")
+                    rag_context = (
+                        "\n\n## Base de conocimiento (usa esta información si es relevante):\n"
+                        + "\n---\n".join(rag_parts)
+                    )
+                    app.logger.info(f"RAG: {len(docs)} docs encontrados")
+                else:
+                    app.logger.info("RAG: 0 docs encontrados")
+            except Exception as e:
+                app.logger.error(f"RAG error: {e}")
+
+        prompt = f"""{system_prompt}{rag_context}
+
+Contexto: {context}
+Usuario: {user_message}"""
+
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://tusabogados.com",
+            "X-Title": "TusAbogados.com - Asistente Legal IA",
+        }
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 500,
+        }
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+        app.logger.info(f"OpenRouter response status: {response.status_code}")
+        if response.status_code != 200:
+            app.logger.error(f"OpenRouter error body: {response.text[:500]}")
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        app.logger.error(f"Error OpenRouter: {str(e)}")
+        return None
+
+
+def get_llm_response(user_message, context="", state=None):
+    app.logger.info(
+        f"get_llm_response: OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
+    )
+    if OPENROUTER_CONFIGURED:
+        app.logger.info("Intentando OpenRouter...")
+        result = openrouter_response(user_message, context)
+        if result:
+            app.logger.info(f"OpenRouter respondió: {result[:100]}...")
+            return result
+        app.logger.warning("OpenRouter falló, intentando Gemini como fallback")
+    if GEMINI_CONFIGURED:
+        app.logger.info("Intentando Gemini...")
+        result = gemini_response(user_message, context)
+        if result:
+            app.logger.info(f"Gemini respondió: {result[:100]}...")
+            return result
+        app.logger.error("Gemini también falló")
+    app.logger.error("Ningún LLM respondió")
+    return None
+
+
+def categorizar_por_palabras_clave(descripcion):
+    """Clasifica el caso por palabras clave cuando el LLM no está disponible."""
+    desc = descripcion.lower()
+
+    palabras_penal = [
+        "robo", "robos", "agresión", "agresiones", "amenaza", "amenazas",
+        "estafa", "estafas", "fraude", "fraudes", "violencia", "delito",
+        "delitos", "denuncia", "denuncias penales", "hurto", "homicidio",
+        "lesiones", "extorsión", "sicariato", "consumo", "tráfico",
+    ]
+    palabras_laboral = [
+        "despido", "despedido", "despedida", "acoso laboral", "prestaciones",
+        "liquidación", "liquidación laboral", "indemnización laboral",
+        "accidente de trabajo", "derechos del trabajador", "salario",
+        "contrato laboral", "jornada", "horas extras", "parafiscales",
+        "cotización", "pensión", "incapacidad", "afiliación",
+    ]
+    palabras_civil = [
+        "divorcio", "herencia", "herencias", "contrato", "contratos",
+        "propiedad", "indemnización", "custodia", "menores", "sucesión",
+        "sucesiones", "arrendamiento", "arrendamientos", "responsabilidad civil",
+        "pensión alimenticia", "tenencia", "régimen de visitas",
+        "reconvención", "evicción", "mejoras", "usufructo", "servidumbre",
+        "hipoteca", "prenda", "fianza", "liquidación de sociedad conyugal",
+    ]
+
+    penal_score = sum(1 for p in palabras_penal if p in desc)
+    laboral_score = sum(1 for p in palabras_laboral if p in desc)
+    civil_score = sum(1 for p in palabras_civil if p in desc)
+
+    app.logger.info(
+        f"Categorización por keywords: civil={civil_score}, laboral={laboral_score}, penal={penal_score}"
+    )
+
+    max_score = max(civil_score, laboral_score, penal_score)
+    if max_score == 0:
+        return "civil"
+    if penal_score == max_score:
+        return "penal"
+    if laboral_score == max_score:
+        return "laboral"
+    return "civil"
+
+
+def categorizar_caso_con_llm(descripcion):
+    system_prompt = "Eres un asistente de clasificación de casos legales. Tu ÚNICO trabajo es clasificar la descripción del caso en una categoría. No saludes, no expliques, no converses."
+
+    prompt = f"""{system_prompt}
+
+Clasifica el siguiente caso en UNA sola categoría:
+
+- CIVIL: divorcio, herencias, contratos, propiedad, indemnización por daños, custodia de menores, sucesiones, arrendamientos, responsabilidad civil.
+- LABORAL: despido injustificado, acoso laboral, prestaciones sociales, liquidación, indemnización laboral, accidentes de trabajo, derechos del trabajador.
+- PENAL: robos, agresiones, amenazas, estafas, fraudes, violencia, delitos, denuncias penales.
+
+Descripción: {descripcion}
+
+Responde SOLO con la palabra: civil, laboral o penal."""
+
+    try:
+        if OPENROUTER_CONFIGURED:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": OPENROUTER_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 10,
+            }
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=15,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                respuesta = data["choices"][0]["message"]["content"].strip().lower()
+                app.logger.info(
+                    f"Categorización LLM: '{respuesta}' para descripción: '{descripcion[:80]}'"
+                )
+                for cat in ["civil", "laboral", "penal"]:
+                    if cat in respuesta:
+                        return cat
+
+        if GEMINI_CONFIGURED and gemini_model is not None:
+            response = gemini_model.generate_content(prompt)
+            respuesta = response.text.strip().lower()
+            app.logger.info(
+                f"Categorización Gemini: '{respuesta}' para descripción: '{descripcion[:80]}'"
+            )
+            for cat in ["civil", "laboral", "penal"]:
+                if cat in respuesta:
+                    return cat
+
+    except Exception as e:
+        app.logger.error(f"Error en categorizar_caso_con_llm: {e}")
+
+    # Respaldo: clasificación por palabras clave cuando el LLM falla
+    app.logger.info(f"Categorización LLM falló, usando respaldo por palabras clave para: '{descripcion[:80]}'")
+    return categorizar_por_palabras_clave(descripcion)
+
+
+def limpiar_estado_chat(state):
+    """Limpia el estado de la conversacion."""
+    state.clear()
+
+
+def get_next_appointment():
+    """
+    Obtiene la siguiente cita disponible de forma dinámica.
+    Consulta la base de datos para saber qué horarios ya están ocupados.
+    Siempre busca a partir del día siguiente a la fecha actual.
+    Retorna dict con fecha, hora, fecha_str, mensaje_fecha, mensaje_completo.
+    """
+    result = obtener_siguiente_cita_disponible(
+        horas_ocupadas_fn=obtener_citas_por_fecha
+    )
+    if result:
+        return result
+    # Fallback: si no hay disponibilidad (improbable), usar la función básica
+    return proxima_cita()
+
+
+def obtener_estado_chat(state=None):
+    """Obtiene el estado de la conversacion."""
+    if state is not None:
+        return state.to_dict()
+    return {}
+
+
+def guardar_estado_campo(campo, valor, state=None):
+    """Guarda un campo en el estado."""
+    if state is not None:
+        setattr(state, campo, valor)
+
+
+def save_conversation(response, paso_actual, user_message="", state=None):
+    """Guarda la conversacion en la base de datos."""
+    try:
+        email = getattr(state, "user_email", "") if state else ""
+        nombre = getattr(state, "user_name", "") if state else ""
+        app.logger.info(
+            f"save_conversation: email={email}, nombre={nombre}, paso={paso_actual}, msg_len={len(user_message or '')}"
+        )
+        datos = {
+            "email": email,
+            "nombre": nombre,
+            "mensaje_usuario": user_message if user_message else "",
+            "respuesta_agente": response,
+            "paso": paso_actual,
+        }
+        resultado = guardar_conversacion(datos)
+        app.logger.info(f"save_conversation resultado: {resultado}")
+    except Exception as e:
+        app.logger.error(f"Error saving conversation: {e}")
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.json
+        message = data.get("message", "")
+        accion_boton = data.get("action", None)
+        agent_name = data.get("agent_name", "").strip() or AGENTE_NOMBRE
+        session_id = data.get("session_id", "")
+
+        # Obtener o crear sesion aislada para este usuario
+        session_id, state = ChatSession.get_or_create(session_id)
+        g.resolved_session_id = session_id
+        state.agent_name = agent_name
+
+        if not message and not accion_boton:
+            return jsonify({"error": "No message provided"}), 400
+
+        if accion_boton == "nueva_llamada":
+            limpiar_estado_chat(state)
+            state.paso_actual = "saludo_inicial"
+            state.datos_usuario = {}
+            paso = obtener_paso("saludo_inicial")
+            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
+            save_conversation(response, "saludo_inicial", message, state=state)
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": None,
+                    "step": "saludo_inicial",
+                }
+            )
+
+        message_lower = (message or "").lower().strip()
+
+        is_greeting = any(
+            word in message_lower
+            for word in [
+                "hola",
+                "buenos días",
+                "buenas tardes",
+                "saludos",
+                "buenas",
+                "buenos",
+                "iniciar",
+                "empezar",
+            ]
+        )
+
+        is_farewell = (
+            message_lower
+            in ["gracias", "adiós", "chao", "hasta luego", "no gracias", "eso es todo"]
+            or message_lower.startswith("gracias ")
+            or message_lower.startswith("adiós ")
+            or message_lower.startswith("chao ")
+            or message_lower.startswith("hasta luego")
+            or message_lower.startswith("no gracias")
+            or message_lower.startswith("eso es todo")
+            or message_lower.endswith("gracias")
+            or message_lower.endswith("adiós")
+            or message_lower.endswith("chao")
+        )
+
+        is_question = (
+            "¿" in message_lower
+            or "?" in message_lower
+            or message_lower.startswith("qué ")
+            or message_lower.startswith("que ")
+            or message_lower.startswith("cómo ")
+            or message_lower.startswith("como ")
+            or message_lower.startswith("cuál ")
+            or message_lower.startswith("cual ")
+            or message_lower.startswith("cuáles ")
+            or message_lower.startswith("cuales ")
+            or message_lower.startswith("cuánto ")
+            or message_lower.startswith("cuanto ")
+            or message_lower.startswith("dónde ")
+            or message_lower.startswith("donde ")
+            or message_lower.startswith("quién ")
+            or message_lower.startswith("quien ")
+            or message_lower.startswith("por qué ")
+            or message_lower.startswith("por que ")
+            or message_lower.startswith("para qué ")
+            or message_lower.startswith("para que ")
+        )
+
+        paso_actual_id = getattr(state, "paso_actual", None) or "saludo_inicial"
+        paso_actual = obtener_paso(paso_actual_id)
+
+        if not paso_actual:
+            limpiar_estado_chat(state)
+            state.paso_actual = "saludo_inicial"
+            paso = obtener_paso("saludo_inicial")
+            response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": None,
+                    "step": "saludo_inicial",
+                }
+            )
+
+        # Re-saludo: solo si el paso actual realmente pide nombre (validar=="nombre")
+        # y el usuario NO está respondiendo con un nombre válido (2+ palabras sin
+        # palabras de saludo como nombre propio), reenviar el saludo.
+        if is_greeting and paso_actual_id == "saludo_inicial":
+            nombre_valido, _ = validar_respuesta(paso_actual, message)
+            if not nombre_valido:
+                # Realmente es un saludo, no un nombre → reenviar saludo
+                limpiar_estado_chat(state)
+                state.paso_actual = "saludo_inicial"
+                state.datos_usuario = {}
+                paso = obtener_paso("saludo_inicial")
+                response = paso["mensaje"].replace(AGENTE_NOMBRE, agent_name)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "saludo_inicial",
+                    }
+                )
+            # Si el nombre es válido, caer al handler de saludo_inicial más abajo
+
+        if paso_actual and paso_actual.get("fin"):
+            if is_farewell or accion_boton == "despedida":
+                name = getattr(state, "user_name", "")
+                response = f"Gracias a usted por confiar en nosotros. Ha sido un gusto atenderle. Un abogado especializado se pondrá en contacto con usted en la fecha acordada.\n\nEsta chat se finalizará automáticamente. ¡Que tenga un excelente día!"
+                limpiar_estado_chat(state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": True,
+                        "buttons": None,
+                        "step": "final",
+                    }
+                )
+
+        if paso_actual_id in ["manejo_post_cita", "despedida", "final"]:
+            if is_farewell or accion_boton == "despedida":
+                name = getattr(state, "user_name", "")
+                response = f"¡{name}!\n\nHa sido un placer ayudarle. Un especialista se contactará con usted en la fecha acordada.\n\nEsta llamada se finalizará automáticamente. ¡Que tenga un excelente día!"
+                limpiar_estado_chat(state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": True,
+                        "buttons": None,
+                        "step": "final",
+                    }
+                )
+            if is_question:
+                context = (
+                    f"Usuario: {getattr(state, 'user_name', 'usuario')}. Pregunta libre."
+                )
+                rag_response = None
+                if RAG_AVAILABLE:
+                    try:
+                        docs = search_knowledge(message, n_results=3)
+                        if docs:
+                            rag_parts = []
+                            for d in docs:
+                                rag_parts.append(
+                                    f"[Fuente: {d['source']}]\n{d['text']}"
+                                )
+                            rag_context = "\n---\n".join(rag_parts)
+                            rag_response = (
+                                f"Según la información disponible:\n\n{rag_context}"
+                            )
+                    except Exception as e:
+                        app.logger.error(f"RAG error: {e}")
+                if rag_response:
+                    response = (
+                        f"{rag_response}\n\n¿Hay algo más en lo que pueda asistirle?"
+                    )
+                else:
+                    llm_resp = get_llm_response(message, context=context, state=state)
+                    if llm_resp:
+                        response = (
+                            f"{llm_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
+                        )
+                    else:
+                        response = "No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente."
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": paso_actual_id,
+                    }
+                )
+            if accion_boton == "consulta_adicional":
+                paso = obtener_paso("consulta_adicional")
+                if paso and paso.get("mensaje"):
+                    response = paso.get("mensaje", "")
+                    buttons = paso.get("botones")
+                    state.paso_actual = "pregunta_consultar"
+                    save_conversation(response, "manejo_post_cita", message, state=state)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "pregunta_consultar",
+                        }
+                    )
+            response = "¿Hay algo más en lo que pueda ayudarte?"
+            buttons = [
+                {
+                    "texto": "Sí, tengo otra pregunta",
+                    "valor": "consulta_adicional",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": paso_actual_id,
+                }
+            )
+
+        if is_question and paso_actual_id not in [
+            "saludo_inicial",
+            "identificacion_rol",
+            "categorizacion_caso",
+            "verificacion_pruebas",
+            "descripcion_caso",
+            "captura_correo",
+            "captura_telefono",
+            "confirmacion_cita",
+            "propuesta_horario",
+            "rechazo_horario",
+            "manejo_post_cita",
+            "confirmacion_cita_opcion",
+            "pregunta_consultar",
+            "consulta_adicional",
+        ]:
+            context = (
+                f"Usuario: {getattr(state, 'user_name', 'usuario')}. Pregunta libre."
+            )
+            rag_response = None
+            if RAG_AVAILABLE:
+                try:
+                    docs = search_knowledge(message, n_results=3)
+                    if docs:
+                        rag_parts = []
+                        for d in docs:
+                            rag_parts.append(f"[Fuente: {d['source']}]\n{d['text']}")
+                        rag_context = "\n---\n".join(rag_parts)
+                        rag_response = (
+                            f"Según la información disponible:\n\n{rag_context}"
+                        )
+                except Exception as e:
+                    app.logger.error(f"RAG error: {e}")
+            if rag_response:
+                response = f"{rag_response}\n\n¿Hay algo más en lo que pueda asistirle?"
+            else:
+                llm_resp = get_llm_response(message, context=context, state=state)
+                if llm_resp:
+                    response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda asistirle?"
+                else:
+                    response = "No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente."
+            buttons = [
+                {
+                    "texto": "Continuar con mi caso",
+                    "valor": "continuar",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": paso_actual_id,
+                }
+            )
+
+        if is_farewell and paso_actual_id not in [
+            "saludo_inicial",
+            "identificacion_rol",
+            "categorizacion_caso",
+            "verificacion_pruebas",
+            "descripcion_caso",
+            "captura_correo",
+            "captura_telefono",
+            "confirmacion_cita",
+            "confirmacion_cita_opcion",
+            "rechazo_horario",
+        ]:
+            name = getattr(state, "user_name", "")
+            if hasattr(state, "appointment_time"):
+                response = f"Entendido, {name}. Un abogado se comunicará contigo en la fecha acordada. Saludos cordiales."
+            else:
+                response = f"Entendido, {name}. Un abogado se comunicará contigo a la brevedad. Saludos cordiales."
+            limpiar_estado_chat(state)
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": True,
+                    "buttons": None,
+                    "step": "final",
+                }
+            )
+
+        if accion_boton:
+            if accion_boton == "aceptar_cita":
+                state.paso_actual = "propuesta_horario"
+                cita_disp = get_next_appointment()
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                response = f"Perfecto, {getattr(state, 'user_name', 'usuario')}. Te propongo {cita_disp['mensaje_completo']}. ¿Te parece bien esa fecha y hora?"
+                buttons = [
+                    {
+                        "texto": "Sí, confirmo",
+                        "valor": "confirmar",
+                        "descripcion": "",
+                    },
+                    {
+                        "texto": "No, no me viene bien",
+                        "valor": "rechazar",
+                        "descripcion": "",
+                    },
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "propuesta_horario",
+                    }
+                )
+
+            if accion_boton == "rechazar_cita":
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                response = f"Entendido, {name}. Uno de nuestros abogados especializados se contactará con usted según los datos agendados y le ampliará toda la información al respecto. ¿Hay alguna otra cosa en la que pueda asistirle?"
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
+            if accion_boton == "continuar":
+                paso_actual = obtener_paso(paso_actual_id)
+                if paso_actual:
+                    datos = obtener_estado_chat(state)
+                    response = formatear_mensaje(paso_actual, datos)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": paso_actual.get("botones"),
+                            "step": paso_actual_id,
+                        }
+                    )
+                response = "¿Hay algo más en lo que pueda ayudarte?"
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+            if accion_boton in ["demandado", "demandante"]:
+                guardar_estado_campo(
+                    "user_role",
+                    "demandado" if accion_boton == "demandado" else "demandante",
+                    state=state
+                )
+                state.paso_actual = "categorizacion_caso"
+                paso_cat = obtener_paso("categorizacion_caso")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_cat, datos)
+                save_conversation(response, "identificacion_rol", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_cat.get("botones"),
+                        "step": "categorizacion_caso",
+                    }
+                )
+
+            if accion_boton in ["civil", "laboral", "penal"]:
+                guardar_estado_campo("case_category", accion_boton, state=state)
+                state.paso_actual = "verificacion_pruebas"
+                paso_pruebas = obtener_paso("verificacion_pruebas")
+                ejemplos = {
+                    "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
+                    "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
+                    "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
+                }
+                if accion_boton in ejemplos:
+                    response = f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[accion_boton]}"
+                else:
+                    context = f"El usuario seleccionó que su caso es de derecho {accion_boton}. Pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
+                    response = get_llm_response(message, context=context, state=state) or f"Para el caso que nos ocupa, de carácter {accion_boton}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
+                save_conversation(response, "categorizacion_caso", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_pruebas["botones"],
+                        "step": "verificacion_pruebas",
+                    }
+                )
+
+            if accion_boton == "no_definida":
+                state.paso_actual = "descripcion_categoria"
+                paso_desc_cat = obtener_paso("descripcion_categoria")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_desc_cat, datos)
+                save_conversation(response, "categorizacion_caso", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_categoria",
+                    }
+                )
+
+            if accion_boton in ["si_pruebas", "no_pruebas"]:
+                guardar_estado_campo("has_evidence", accion_boton, state=state)
+                # Si ya tiene descripción (vino de "no_definida"/descripcion_categoria), saltar descripcion_caso
+                ya_tiene_descripcion = bool(getattr(state, "case_description", "").strip())
+                if ya_tiene_descripcion:
+                    state.paso_actual = "captura_correo"
+                    paso_correo = obtener_paso("captura_correo")
+                    response = formatear_mensaje(paso_correo, obtener_estado_chat(state))
+                    save_conversation(response, "verificacion_pruebas", message, state=state)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": "captura_correo",
+                        }
+                    )
+                state.paso_actual = "descripcion_caso"
+                paso_desc = obtener_paso("descripcion_caso")
+                datos = obtener_estado_chat(state)
+                if accion_boton == "si_pruebas":
+                    response = "Excelente. Cuénteme brevemente qué sucedió en su caso — con eso podré entender mejor su situación. También puede adjuntar los archivos que considere relevantes (documentos, fotos, audios, etc.)."
+                else:
+                    response = formatear_mensaje(paso_desc, datos)
+                save_conversation(response, "verificacion_pruebas", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_caso",
+                        "show_upload": accion_boton == "si_pruebas",
+                    }
+                )
+
+            if accion_boton == "confirmar":
+                cita_disp = get_next_appointment()
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
+                description = getattr(state, "case_description", "")
+                role = getattr(state, "user_role", "")
+
+                # Generar código y URL únicos para el agente de voz
+                codigo_acceso = generar_codigo_acceso()
+                url_agente_voz, url_token = generar_url_agente_voz()
+
+                guardar_usuario(
+                    {
+                        "nombre": name,
+                        "email": email,
+                        "telefono": phone,
+                        "rol": role,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "tiene_pruebas": getattr(state, "has_evidence", ""),
+                        "paso_actual": "confirmacion_cita",
+                    }
+                )
+                exito_cita, cita_id = guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
+                        "estado": "confirmada",
+                        "codigo_acceso": codigo_acceso,
+                        "url_token": url_token,
+                        "url_agente_voz": url_agente_voz,
+                    }
+                )
+
+                # Enviar correo de confirmación y programar recordatorio
+                datos_notif = {
+                    "cita_id": cita_id or "pending",
+                    "nombre": name,
+                    "email": email,
+                    "telefono": phone,
+                    "categoria": category,
+                    "fecha_cita": cita_disp["fecha_str"],
+                    "hora_cita": cita_disp["hora"],
+                    "codigo_acceso": codigo_acceso,
+                    "url_agente_voz": url_agente_voz,
+                }
+                try:
+                    app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                    resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                    app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
+                    programar_recordatorio(datos_notif)
+                except Exception as e:
+                    app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
+
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
+📧 Correo de confirmación: {email}
+📱 Teléfono de contacto: {phone}
+
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
+            if accion_boton == "rechazar":
+                state.paso_actual = "rechazo_horario"
+                paso_rechazo = obtener_paso("rechazo_horario")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_rechazo, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_rechazo.get("botones"),
+                        "step": "rechazo_horario",
+                    }
+                )
+
+            if accion_boton == "otra_fecha":
+                # Buscar la siguiente cita DESPUÉS de la que se ofreció primero
+                fecha_actual = getattr(state, "appointment_fecha_str", None)
+                hora_actual = getattr(state, "appointment_hora", None)
+                if fecha_actual and hora_actual:
+                    cita_disp = obtener_cita_despues_de(
+                        fecha_actual, hora_actual,
+                        horas_ocupadas_fn=obtener_citas_por_fecha
+                    )
+                else:
+                    cita_disp = get_next_appointment()
+
+                if cita_disp is None:
+                    response = "Lo siento, no hay más citas disponibles en este momento. Por favor, intenta más tarde."
+                    return jsonify({
+                        "response": response,
+                        "end_call": False,
+                        "buttons": [{"texto": "Volver al inicio", "valor": "reiniciar", "descripcion": ""}],
+                        "step": "sin_disponibilidad",
+                    })
+
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
+
+                # Generar código y URL únicos para el agente de voz
+                codigo_acceso = generar_codigo_acceso()
+                url_agente_voz, url_token = generar_url_agente_voz()
+
+                # Guardar la nueva cita en la base de datos
+                exito_cita, cita_id = guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": getattr(state, "case_description", ""),
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
+                        "estado": "confirmada",
+                        "codigo_acceso": codigo_acceso,
+                        "url_token": url_token,
+                        "url_agente_voz": url_agente_voz,
+                    }
+                )
+
+                # Enviar correo de confirmación y programar recordatorio
+                datos_notif = {
+                    "cita_id": cita_id or "pending",
+                    "nombre": name,
+                    "email": email,
+                    "telefono": phone,
+                    "categoria": category,
+                    "fecha_cita": cita_disp["fecha_str"],
+                    "hora_cita": cita_disp["hora"],
+                    "codigo_acceso": codigo_acceso,
+                    "url_agente_voz": url_agente_voz,
+                }
+                try:
+                    app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                    resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                    app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
+                    programar_recordatorio(datos_notif)
+                except Exception as e:
+                    app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
+
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
+📧 Correo de confirmación: {email}
+📱 Teléfono de contacto: {phone}
+
+He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha acordada.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
+            if accion_boton == "contactar_abogado":
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                response = f"Perfecto, {name}. Un abogado se comunicará contigo a la brevedad para atender tu caso de forma personalizada. ¿Hay algo más en lo que pueda ayudarte?"
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
+            if accion_boton == "consulta_adicional" and paso_actual_id not in [
+                "manejo_post_cita",
+                "consulta_adicional",
+                "pregunta_consultar",
+            ]:
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                response = f"Entendido, {name}. Listo, he registrado tu consulta adicional. Un abogado especializado se pondrá en contacto contigo según la cita agendada y te brindará toda la información que necesitas. ¿Hay algo más en lo que pueda ayudarte?"
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+
+            if accion_boton == "despedida":
+                name = getattr(state, "user_name", "")
+                response = f"Gracias a usted por confiar en nosotros. Ha sido un gusto atenderle. Un abogado especializado se pondrá en contacto con usted en la fecha acordada.\n\nEsta chat se finalizará automáticamente. ¡Que tenga un excelente día!"
+                limpiar_estado_chat(state)
+                save_conversation(response, "despedida", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": True,
+                        "buttons": None,
+                        "step": "final",
+                    }
+                )
+
+        if paso_actual_id == "saludo_inicial":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                state.user_name = result
+                state.paso_actual = "identificacion_rol"
+                paso_rol = obtener_paso("identificacion_rol")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_rol, datos)
+                save_conversation(response, "saludo_inicial", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_rol.get("botones"),
+                        "step": "identificacion_rol",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "descripcion_caso":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                state.case_description = result
+                state.paso_actual = "captura_correo"
+                paso_correo = obtener_paso("captura_correo")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_correo, datos)
+                save_conversation(response, "descripcion_caso", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "captura_correo",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "descripcion_categoria":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                state.case_description = result
+                categoria_detectada = categorizar_caso_con_llm(result)
+                if categoria_detectada not in ["civil", "laboral", "penal"]:
+                    categoria_detectada = "civil"
+                guardar_estado_campo("case_category", categoria_detectada, state=state)
+                state.paso_actual = "verificacion_pruebas"
+                paso_pruebas = obtener_paso("verificacion_pruebas")
+                ejemplos = {
+                    "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
+                    "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
+                    "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
+                }
+                if categoria_detectada in ejemplos:
+                    response = f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[categoria_detectada]}"
+                else:
+                    context = f"El usuario describió su caso y es de derecho {categoria_detectada}. Confirma la categoría y pregúntale si tiene pruebas que respalden su caso (documentos, fotos, audios). Sé breve, máximo 2 oraciones."
+                    response = get_llm_response(message, context=context, state=state) or f"Para el caso que nos ocupa, de carácter {categoria_detectada}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?"
+                save_conversation(response, "descripcion_categoria", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_pruebas["botones"],
+                        "step": "verificacion_pruebas",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "captura_correo":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                state.user_email = result
+                state.paso_actual = "captura_telefono"
+                paso_tel = obtener_paso("captura_telefono")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_tel, datos)
+                save_conversation(response, "captura_correo", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_tel.get("botones"),
+                        "step": "captura_telefono",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "captura_telefono":
+            valid, result = validar_respuesta(paso_actual, message)
+            if valid:
+                state.user_phone = result
+                state.paso_actual = "confirmacion_cita"
+                datos = obtener_estado_chat(state)
+                response = f"Perfecto, ya tengo toda la información necesaria para orientarte en tu proceso. ¿Te parece bien si agendamos una cita con uno de nuestros abogados especializados para que te ayude con tu caso?"
+                buttons = [
+                    {
+                        "texto": "Sí, agendar cita",
+                        "valor": "confirmar",
+                        "descripcion": "",
+                    },
+                    {
+                        "texto": "No, por ahora no",
+                        "valor": "despedida",
+                        "descripcion": "",
+                    },
+                ]
+                save_conversation(response, "captura_telefono", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "confirmacion_cita_opcion",
+                    }
+                )
+            else:
+                return jsonify(
+                    {
+                        "response": result,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": paso_actual_id,
+                    }
+                )
+
+        if paso_actual_id == "confirmacion_cita":
+            if accion_boton == "confirmar" or any(
+                w in message_lower for w in ["sí", "si", "ok", "confirmo", "de acuerdo"]
+            ):
+                cita_disp = get_next_appointment()
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+                state.paso_actual = "manejo_post_cita"
+                name = getattr(state, "user_name", "")
+                email = getattr(state, "user_email", "")
+                phone = getattr(state, "user_phone", "")
+                category = getattr(state, "case_category", "")
+                description = getattr(state, "case_description", "")
+                role = getattr(state, "user_role", "")
+
+                guardar_usuario(
+                    {
+                        "nombre": name,
+                        "email": email,
+                        "telefono": phone,
+                        "rol": role,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "tiene_pruebas": getattr(state, "has_evidence", ""),
+                        "paso_actual": "confirmacion_cita",
+                    }
+                )
+                guardar_cita(
+                    {
+                        "email": email,
+                        "nombre": name,
+                        "telefono": phone,
+                        "categoria": category,
+                        "descripcion_caso": description,
+                        "fecha_cita": cita_disp["fecha_str"],
+                        "hora_cita": cita_disp["hora"],
+                        "estado": "confirmada",
+                    }
+                )
+                response = f"""📅 Fecha: {cita_disp['mensaje_completo']}
+📧 Correo de confirmación: {email}
+📱 Teléfono de contacto: {phone}
+
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+                buttons = [
+                    {
+                        "texto": "Sí, tengo otra duda",
+                        "valor": "consulta_adicional",
+                        "descripcion": "",
+                    },
+                    {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+                ]
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "manejo_post_cita",
+                    }
+                )
+            if accion_boton == "rechazar" or any(
+                w in message_lower
+                for w in ["no", "no me viene", "otro horario", "otra hora"]
+            ):
+                state.paso_actual = "rechazo_horario"
+                paso_rechazo = obtener_paso("rechazo_horario")
+                datos = obtener_estado_chat(state)
+                response = formatear_mensaje(paso_rechazo, datos)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_rechazo.get("botones"),
+                        "step": "rechazo_horario",
+                    }
+                )
+
+        if paso_actual_id == "confirmacion_cita_opcion":
+            # Si no tiene cita asignada, asignar la siguiente disponible
+            if not getattr(state, "appointment_time", None):
+                cita_disp = get_next_appointment()
+                state.appointment_time = cita_disp["mensaje_completo"]
+                state.appointment_fecha_str = cita_disp["fecha_str"]
+                state.appointment_hora = cita_disp["hora"]
+
+            # Generar código y URL si no existen
+            if not getattr(state, "codigo_acceso", None):
+                state.codigo_acceso = generar_codigo_acceso()
+                state.url_agente_voz, state.url_token = generar_url_agente_voz()
+
+            name = getattr(state, "user_name", "")
+            email = getattr(state, "user_email", "")
+            phone = getattr(state, "user_phone", "")
+            appointment_date = getattr(state, "appointment_time", "")
+
+            # Guardar la cita en la BD
+            category = getattr(state, "case_category", "")
+            fecha_str = getattr(state, "appointment_fecha_str", "")
+            hora_str = getattr(state, "appointment_hora", "")
+            exito_cita, cita_id = guardar_cita(
+                {
+                    "email": email,
+                    "nombre": name,
+                    "telefono": phone,
+                    "categoria": category,
+                    "descripcion_caso": getattr(state, "case_description", ""),
+                    "fecha_cita": fecha_str,
+                    "hora_cita": hora_str,
+                    "estado": "confirmada",
+                    "codigo_acceso": state.codigo_acceso,
+                    "url_token": state.url_token,
+                    "url_agente_voz": state.url_agente_voz,
+                }
+            )
+
+            # Enviar correo y programar recordatorio
+            datos_notif = {
+                "cita_id": cita_id or "pending",
+                "nombre": name,
+                "email": email,
+                "telefono": phone,
+                "categoria": category,
+                "fecha_cita": fecha_str,
+                "hora_cita": hora_str,
+                "codigo_acceso": state.codigo_acceso,
+                "url_agente_voz": state.url_agente_voz,
+            }
+            try:
+                app.logger.info(f"[NOTIF] Enviando correo confirmacion a {email}...")
+                resultadoCorreo = enviar_correo_confirmacion(datos_notif)
+                app.logger.info(f"[NOTIF] Correo confirmacion resultado: {resultadoCorreo}")
+                programar_recordatorio(datos_notif)
+            except Exception as e:
+                app.logger.error(f"[NOTIF] Error enviando notificacion: {type(e).__name__}: {e}")
+
+            response = f"""📅 Fecha: {appointment_date}
+📧 Confirmación enviada a: {email}
+📱 Teléfono de contacto: {phone}
+
+He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente cobramos comisión por el éxito de los procesos, es decir al final de haber ganado el caso.
+
+¿Hay algo más en lo que pueda ayudarte?"""
+            buttons = [
+                {
+                    "texto": "Sí, tengo otra duda",
+                    "valor": "consulta_adicional",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            save_conversation(response, "confirmacion_cita_opcion", message, state=state)
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": "manejo_post_cita",
+                }
+            )
+
+        if paso_actual_id == "manejo_post_cita":
+            if accion_boton == "consulta_adicional":
+                paso = obtener_paso("consulta_adicional")
+                if paso and paso.get("mensaje"):
+                    response = paso.get("mensaje", "")
+                    buttons = paso.get("botones")
+                    state.paso_actual = "pregunta_consultar"
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "pregunta_consultar",
+                        }
+                    )
+
+        if paso_actual_id == "consulta_adicional":
+            paso = obtener_paso("consulta_adicional")
+            if paso and paso.get("mensaje"):
+                response = paso.get("mensaje", "")
+                buttons = paso.get("botones")
+                state.paso_actual = "pregunta_consultar"
+                buttons = paso.get("botones")
+                guardar_consulta_adicional(
+                    {
+                        "email": getattr(state, "user_email", ""),
+                        "nombre": getattr(state, "user_name", ""),
+                        "consulta": message,
+                    }
+                )
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": buttons,
+                        "step": "pregunta_consultar",
+                    }
+                )
+
+        if paso_actual_id == "pregunta_consultar":
+            if accion_boton == "consulta_adicional":
+                paso = obtener_paso("consulta_adicional")
+                if paso and paso.get("mensaje"):
+                    response = paso.get("mensaje", "")
+                    buttons = paso.get("botones")
+                    state.paso_actual = "pregunta_consultar"
+                    save_conversation(response, "pregunta_consultar", message, state=state)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": buttons,
+                            "step": "pregunta_consultar",
+                        }
+                    )
+            pregunta = message or ""
+            context = f"Usuario adicional: {pregunta}"
+            llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES.replace(AGENTE_NOMBRE, getattr(state, "agent_name", AGENTE_NOMBRE))
+            app.logger.info(
+                f"pregunta_consultar: pregunta='{pregunta}', OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
+            )
+            llm_resp = get_llm_response(pregunta, context=llm_context, state=state)
+            app.logger.info(
+                f"pregunta_consultar: llm_resp={llm_resp[:100] if llm_resp else 'None'}"
+            )
+            if llm_resp:
+                response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda ayudarte?"
+            else:
+                response = f"No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente.\n\n¿Hay algo más en lo que pueda ayudarte?"
+            buttons = [
+                {
+                    "texto": "Sí, tengo otra duda",
+                    "valor": "consulta_adicional",
+                    "descripcion": "",
+                },
+                {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+            ]
+            return jsonify(
+                {
+                    "response": response,
+                    "end_call": False,
+                    "buttons": buttons,
+                    "step": "pregunta_consultar",
+                }
+            )
+        save_conversation("", paso_actual_id, message, state=state)
+
+        # Fallback: si ningún handler capturó el mensaje, intentar con LLM o
+        # responder genéricamente
+        response = (
+            get_llm_response(message, state=state)
+            or "No estoy segura de entender tu mensaje. ¿Podrías reformularlo?"
+        )
+        buttons = [
+            {
+                "texto": "Sí, tengo otra duda",
+                "valor": "consulta_adicional",
+                "descripcion": "",
+            },
+            {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
+        ]
+        return jsonify(
+            {
+                "response": response,
+                "end_call": False,
+                "buttons": buttons,
+                "step": paso_actual_id,
+            }
+        )
+
+    except Exception as e:
+        app.logger.error(f"Exception in chat: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+
+@app.after_request
+def add_session_id_to_response(response):
+    """Inyecta session_id en todas las respuestas JSON del chat."""
+    if request.path == "/api/chat" and response.content_type and "application/json" in response.content_type:
+        try:
+            data = response.get_json(silent=True)
+            if data and "session_id" not in data:
+                sid = getattr(g, "resolved_session_id", None)
+                if sid:
+                    data["session_id"] = sid
+                    response.set_data(json.dumps(data))
+        except Exception:
+            pass
+    return response
+
+@app.route("/api/knowledge/upload", methods=["POST"])
+def upload_knowledge():
+    if not RAG_AVAILABLE:
+        return jsonify(
+            {"error": "Módulo RAG no disponible. Verifique dependencias."}
+        ), 500
+    if "file" not in request.files:
+        return jsonify({"error": "No se envió ningún archivo."}), 400
+    file = request.files["file"]
+    if not file.filename.endswith(".pdf"):
+        return jsonify({"error": "Solo se permiten archivos PDF."}), 400
+
+    # Check file size (max 5MB to prevent OOM on Render free tier)
+    file.seek(0, 2)  # Seek to end
+    file_size = file.tell()
+    file.seek(0)  # Seek back to start
+    max_size = 5 * 1024 * 1024  # 5MB
+    if file_size > max_size:
+        return jsonify(
+            {
+                "error": f"El archivo excede el límite de 5MB. Tamaño actual: {file_size // (1024 * 1024)}MB"
+            }
+        ), 400
+
+    try:
+        tmp_dir = tempfile.mkdtemp()
+        tmp_path = os.path.join(tmp_dir, file.filename)
+        file.save(tmp_path)
+        app.logger.info(f"PDF guardado temporalmente: {tmp_path}")
+
+        num_chunks, msg = add_pdf(tmp_path)
+        app.logger.info(f"Resultado add_pdf: {msg}")
+
+        # Cleanup
+        try:
+            os.remove(tmp_path)
+            os.rmdir(tmp_dir)
+        except Exception:
+            pass
+
+        if num_chunks == 0:
+            return jsonify({"error": msg}), 400
+        return jsonify({"message": msg, "chunks": num_chunks})
+    except Exception as e:
+        app.logger.error(f"Error uploading PDF: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Error al procesar el PDF: {str(e)}"}), 500
+
+
+@app.route("/api/knowledge/documents", methods=["GET"])
+def list_knowledge():
+    if not RAG_AVAILABLE:
+        return jsonify({"documents": [], "rag_available": False})
+    docs = list_documents()
+    return jsonify({"documents": docs, "rag_available": True})
+
+
+@app.route("/api/knowledge/delete", methods=["POST"])
+def delete_knowledge():
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "Módulo RAG no disponible."}), 500
+    data = request.json
+    source = data.get("source", "")
+    if not source:
+        return jsonify({"error": "Nombre del documento no proporcionado."}), 400
+    success, msg = delete_document(source)
+    if success:
+        return jsonify({"message": msg})
+    return jsonify({"error": msg}), 404
+
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    llm_provider = (
+        "openrouter"
+        if OPENROUTER_CONFIGURED
+        else ("gemini" if GEMINI_CONFIGURED else "none")
+    )
+    llm_model = (
+        OPENROUTER_MODEL
+        if OPENROUTER_CONFIGURED
+        else ("gemini-2.5-flash" if GEMINI_CONFIGURED else "none")
+    )
+    return jsonify(
+        {
+            "status": "healthy",
+            "gemini_configured": GEMINI_CONFIGURED,
+            "openrouter_configured": OPENROUTER_CONFIGURED,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model,
+            "tts_voice": TTS_VOICE,
+            "service": f"edge-tts ({TTS_VOICE}) + {llm_model}",
+            "active_sessions": ChatSession.active_count(),
+            "multi_user": True,
+        }
+    )
+
+
+@app.route("/api/sessions", methods=["GET"])
+def active_sessions():
+    """Endpoint para monitorear sesiones activas."""
+    return jsonify({
+        "active_sessions": ChatSession.active_count(),
+        "multi_user_enabled": True,
+    })
+
+
+@app.route("/api/test-gemini", methods=["GET"])
+def test_gemini():
+    """Test endpoint to check if Gemini text generation works."""
+    try:
+        if not GEMINI_CONFIGURED or gemini_model is None:
+            return jsonify(
+                {"error": "Gemini no configurado", "configured": GEMINI_CONFIGURED}
+            ), 500
+        response = gemini_model.generate_content("Responde solo: hola")
+        return jsonify({"status": "ok", "response": response.text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/test-openrouter", methods=["GET"])
+def test_openrouter():
+    """Test endpoint to check if OpenRouter works."""
+    try:
+        if not OPENROUTER_API_KEY:
+            return jsonify({"error": "OPENROUTER_API_KEY no configurada"}), 500
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": OPENROUTER_MODEL,
+            "messages": [{"role": "user", "content": "Responde solo: hola"}],
+            "max_tokens": 50,
+        }
+        r = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=15,
+        )
+        return jsonify({"status": r.status_code, "body": r.text[:500]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/test-embedding", methods=["GET"])
+def test_embedding():
+    """Test endpoint to check if Gemini embeddings work."""
+    try:
+        import google.generativeai as genai
+
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        if not api_key:
+            return jsonify({"error": "GEMINI_API_KEY no configurada"}), 500
+        genai.configure(api_key=api_key)
+        result = genai.embed_content(
+            model="models/gemini-embedding-001",
+            content="Test de embedding",
+            output_dimensionality=768,
+        )
+        return jsonify(
+            {
+                "status": "ok",
+                "dimension": len(result["embedding"]),
+                "first_5_values": result["embedding"][:5],
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/test-search", methods=["POST"])
+def test_search():
+    """Test RAG search directly."""
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "RAG not available"}), 500
+    data = request.json or {}
+    query = data.get("query", "Convención de Viena tratados")
+    try:
+        docs = search_knowledge(query, n_results=3)
+        return jsonify({"query": query, "results": docs, "count": len(docs)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/pinecone-status", methods=["GET"])
+def pinecone_status():
+    """Check Pinecone index status directly."""
+    if not RAG_AVAILABLE:
+        return jsonify({"error": "RAG not available"}), 500
+    try:
+        from rag import get_pc, get_index, INDEX_NAME, DIMENSION
+
+        pc = get_pc()
+        if pc is None:
+            return jsonify({"error": "Pinecone not connected"}), 500
+
+        existing = pc.list_indexes()
+        index_names = [idx.name for idx in existing.indexes]
+
+        if INDEX_NAME not in index_names:
+            return jsonify(
+                {"status": "no_index", "indexes": index_names, "expected": INDEX_NAME}
+            )
+
+        idx = pc.Index(INDEX_NAME)
+        stats = idx.describe_index_stats()
+
+        return jsonify(
+            {
+                "status": "ok",
+                "index": INDEX_NAME,
+                "dimension": DIMENSION,
+                "total_vectors": stats.total_vector_count,
+                "namespaces": {k: v.vector_count for k, v in stats.namespaces.items()}
+                if stats.namespaces
+                else {},
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/voices", methods=["GET"])
+def list_voices():
+    voices = [
+        {
+            "id": "es-US-PalomaNeural",
+            "name": "Paloma",
+            "gender": "Femenina",
+            "region": "Estados Unidos (español)",
+            "recommended": True,
+        },
+        {
+            "id": "es-MX-DaliaNeural",
+            "name": "Dalia",
+            "gender": "Femenina",
+            "region": "México",
+        },
+        {
+            "id": "es-MX-JorgeNeural",
+            "name": "Jorge",
+            "gender": "Masculino",
+            "region": "México",
+        },
+        {
+            "id": "es-ES-ElviraNeural",
+            "name": "Elvira",
+            "gender": "Femenina",
+            "region": "España",
+        },
+        {
+            "id": "es-ES-AlvaroNeural",
+            "name": "Álvaro",
+            "gender": "Masculino",
+            "region": "España",
+        },
+    ]
+    return jsonify({"voices": voices, "current": TTS_VOICE})
+
+
+@app.route("/api/test-email", methods=["POST"])
+@app.route("/api/test-smtp", methods=["POST"])
+def test_email():
+    """Endpoint para probar el envio de correo via Resend API."""
+    from notificaciones import (
+        _email_configurado,
+        _enviar_correo,
+        RESEND_API_KEY,
+        RESEND_FROM,
+    )
+
+    app.logger.info("=== TEST EMAIL INICIADO ===")
+    app.logger.info(f"[EMAIL] Provider: Resend")
+    app.logger.info(f"[EMAIL] From: {RESEND_FROM}")
+
+    if not _email_configurado():
+        return jsonify({
+            "ok": False,
+            "error": "RESEND_API_KEY no configurada."
+        }), 400
+
+    data = request.get_json(silent=True) or {}
+    destinatario = data.get("email", "")
+
+    html = (
+        "<h2>Prueba de correo - TusAbogados.com</h2>"
+        "<p>Si ves este correo, Resend API esta funcionando correctamente.</p>"
+        "<p><strong>Fecha:</strong> " + __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "</p>"
+    )
+
+    app.logger.info(f"[EMAIL] Enviando prueba a: {destinatario}")
+    resultado = _enviar_correo(destinatario, "Prueba - TusAbogados.com", html)
+    app.logger.info(f"[EMAIL] Resultado: {resultado}")
+
+    return jsonify({
+        "ok": resultado,
+        "email": destinatario,
+        "provider": "resend",
+        "from": RESEND_FROM,
+    })
+
+
+if __name__ == "__main__":
+    # Reprogramar recordatorios pendientes al iniciar
+    try:
+        citas_pendientes = obtener_citas_proximas_para_recordatorio()
+        if citas_pendientes:
+            iniciar_recordatorios_pendientes(citas_pendientes)
+            app.logger.info(
+                f"Recordatorios reprogramados: {len(citas_pendientes)} citas"
+            )
+    except Exception as e:
+        app.logger.error(f"Error reprogramando recordatorios: {e}")
+
+    # Iniciar verificador periodico de recordatorios (sobrevive reinicios)
+    try:
+        iniciar_verificador_recordatorios(intervalo=120)
+    except Exception as e:
+        app.logger.error(f"Error iniciando verificador: {e}")
+
+    # Iniciar limpieza de sesiones expiradas
+    ChatSession._start_cleanup_if_needed()
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
