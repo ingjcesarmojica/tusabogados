@@ -1762,17 +1762,44 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
                         }
                     )
             pregunta = message or ""
-            context = f"Usuario adicional: {pregunta}"
             llm_context = INSTRUCCIONES_PREGUNTAS_ADICIONALES.replace(AGENTE_NOMBRE, getattr(state, "agent_name", AGENTE_NOMBRE))
             app.logger.info(
                 f"pregunta_consultar: pregunta='{pregunta}', OPENROUTER_CONFIGURED={OPENROUTER_CONFIGURED}, GEMINI_CONFIGURED={GEMINI_CONFIGURED}"
             )
+
+            # 1) Buscar en la base de conocimiento (RAG) con la pregunta del usuario
+            rag_response = None
+            if RAG_AVAILABLE:
+                try:
+                    docs = search_knowledge(pregunta, n_results=3)
+                    if docs:
+                        rag_parts = []
+                        for d in docs:
+                            rag_parts.append(f"[Fuente: {d['source']}]\n{d['text']}")
+                        rag_body = "\n---\n".join(rag_parts)
+                        # Pasar los documentos al LLM para que responda con esa info
+                        llm_context = (
+                            f"{llm_context}\n\n## Base de conocimiento "
+                            f"(usa esta información para responder):\n{rag_body}"
+                        )
+                        rag_response = f"Según la información disponible:\n\n{rag_body}"
+                        app.logger.info(f"RAG pregunta_consultar: {len(docs)} docs encontrados")
+                    else:
+                        app.logger.info("RAG pregunta_consultar: 0 docs encontrados")
+                except Exception as e:
+                    app.logger.error(f"RAG error en pregunta_consultar: {e}")
+
+            # 2) El LLM responde usando la información de la base de conocimiento
             llm_resp = get_llm_response(pregunta, context=llm_context, state=state)
             app.logger.info(
                 f"pregunta_consultar: llm_resp={llm_resp[:100] if llm_resp else 'None'}"
             )
             if llm_resp:
                 response = f"{llm_resp}\n\n¿Hay algo más en lo que pueda ayudarte?"
+            elif rag_response:
+                # El LLM no respondió pero la base de conocimiento sí tiene info:
+                # responder directamente con ella en vez del fallback genérico
+                response = f"{rag_response}\n\n¿Hay algo más en lo que pueda ayudarte?"
             else:
                 response = f"No tengo información específica sobre esa consulta. Un abogado podrá orientarte personalmente.\n\n¿Hay algo más en lo que pueda ayudarte?"
             buttons = [
