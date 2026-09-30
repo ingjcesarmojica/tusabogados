@@ -43,7 +43,7 @@ PASOS = {
     "categorizacion_caso": {
         "id": "categorizacion_caso",
         "siguiente": "verificacion_pruebas",
-        "mensaje": "Entendido {nombre}, como {rol}. Ahora necesito saber el tipo de caso.\n\nPor ejemplo:\n• \"Categoría Civil\": si su caso es por divorcio, herencias, cumplimiento de contrato, deudas, o resolver problemas de propiedad.\n• \"Categoría Laboral\": por ejemplo, si va a demandar por despido injustificado, acoso laboral, o para reclamar prestaciones laborales.\n• \"Categoría Penal\": si su caso es por robos, agresiones, amenazas, o estafas.\n\nSi no está seguro a qué categoría pertenece su caso, puede decir: \"No sé cuál es mi categoría\" o \"La desconozco\".\n\n¿En qué categoría cree que está su caso?",
+        "mensaje": "Entendido, {nombre}. ¿Tu caso es civil, laboral o penal? Si no estás seguro, dime \"no sé\" y te ayudo a identificarlo.",
         "validar": None,
         "botones": [
             {

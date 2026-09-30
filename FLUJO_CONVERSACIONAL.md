@@ -1,4 +1,4 @@
-# Flujo Conversacional - Agente IA TusAbogados.com
+﻿# Flujo Conversacional - Agente IA TusAbogados.com
 
 **Agente:** Claudia García - Agente Especializada en Derecho
 **Versión:** 2.0 (Modo Chat)
@@ -36,8 +36,8 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                 CATEGORIZACIÓN DEL CASO                              │
 │                 categorizacion_caso                                  │
-│  "Entendido, {nombre}, como {rol}. ¿En qué categoría crees que    │
-│   está tu caso?"                                                    │
+│  "Entendido, {nombre}. ¿Tu caso es civil, laboral o penal? Si no    │
+│  estás seguro, dime "no sé" y te ayudo a identificarlo."            │
 │                                                                     │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────┐  │
 │  │   Civil    │ │  Laboral   │ │   Penal    │ │ No sé cuál es  │  │
