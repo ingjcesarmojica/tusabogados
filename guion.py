@@ -24,7 +24,7 @@ PASOS = {
     "identificacion_rol": {
         "id": "identificacion_rol",
         "siguiente": "categorizacion_caso",
-        "mensaje": "Mucho gusto {nombre}. Para orientarle mejor, necesito saber su rol en el caso.\n\n¿Es usted:\n• \"Demandado\": por ejemplo, si lo están acusando de algo, o tiene un proceso en contra donde necesita defenderse legalmente.\n• \"Demandante\": por ejemplo, si quiere solicitar una compensación por algún daño, ejemplo iniciar una demanda por divorcio, reclamar una herencia, demandar por deudas o incumplimiento de contrato, o exigir sus derechos laborales.\n\n¿Se considera demandado o demandante en esta situación?",
+        "mensaje": "Mucho gusto, {nombre}. Para orientarte mejor, ¿en tu caso eres demandado (te acusan o debes defenderte) o demandante (quieres reclamar o exigir algo)?",
         "validar": None,
         "botones": [
             {

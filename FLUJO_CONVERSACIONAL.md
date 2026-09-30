@@ -21,8 +21,9 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                  IDENTIFICACIÓN DE ROL                               │
 │                  identificacion_rol                                  │
-│  "Mucho gusto, {nombre}. Para orientarte mejor, necesito saber     │
-│   tu rol en el caso."                                               │
+│  "Mucho gusto, {nombre}. Para orientarte mejor, ¿en tu caso eres    │
+│   demandado (te acusan o debes defenderte) o demandante (quieres    │
+│   reclamar o exigir algo)?"                                         │
 │                                                                     │
 │  ┌──────────────────┐    ┌──────────────────┐                      │
 │  │    Demandado      │    │   Demandante     │                      │
