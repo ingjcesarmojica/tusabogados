@@ -1249,6 +1249,142 @@ He revisado tu caso de {category}. Un abogado se comunicará contigo en la fecha
                     }
                 )
 
+        # ── Texto libre en pasos que también ofrecen botones ──────────
+        # Si el usuario escribe en vez de pulsar, se interpreta la intención
+        # y se avanza al mismo destino que el botón correspondiente.
+        if not accion_boton and paso_actual_id == "identificacion_rol":
+            msg_l = message_lower
+            if "demandado" in msg_l and "demandante" not in msg_l:
+                accion = "demandado"
+            elif "demandante" in msg_l:
+                accion = "demandante"
+            elif any(w in msg_l for w in ["acusan", "acusación", "acusacion", "defender", "defenderme"]):
+                accion = "demandado"
+            elif any(w in msg_l for w in ["reclamar", "exigir", "demandar", "compensación", "compensacion"]):
+                accion = "demandante"
+            else:
+                accion = None
+            if accion:
+                guardar_estado_campo("user_role", accion, state=state)
+                state.paso_actual = "categorizacion_caso"
+                paso_cat = obtener_paso("categorizacion_caso")
+                response = formatear_mensaje(paso_cat, obtener_estado_chat(state))
+                save_conversation(response, "identificacion_rol", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_cat.get("botones"),
+                        "step": "categorizacion_caso",
+                    }
+                )
+
+        if not accion_boton and paso_actual_id == "categorizacion_caso":
+            msg_l = message_lower
+            if any(w in msg_l for w in ["no sé", "no se", "desconozco", "no defino", "no estoy seguro"]):
+                state.paso_actual = "descripcion_categoria"
+                paso_desc = obtener_paso("descripcion_categoria")
+                response = formatear_mensaje(paso_desc, obtener_estado_chat(state))
+                save_conversation(response, "categorizacion_caso", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_categoria",
+                    }
+                )
+            cat = None
+            if "civil" in msg_l:
+                cat = "civil"
+            elif any(w in msg_l for w in ["laboral", "trabajo", "despido", "laborales"]):
+                cat = "laboral"
+            elif any(w in msg_l for w in ["penal", "robo", "denuncia", "estafa", "agresión", "agresion"]):
+                cat = "penal"
+            if cat:
+                guardar_estado_campo("case_category", cat, state=state)
+                state.paso_actual = "verificacion_pruebas"
+                paso_pruebas = obtener_paso("verificacion_pruebas")
+                ejemplos = {
+                    "civil": "- ¿Tiene documentos originales firmados por la contraparte donde se establezca la obligación que vamos a cobrar?",
+                    "laboral": "- ¿Tiene contrato laboral y soporte de pagos de nómina y/o de planilla de salud?",
+                    "penal": "- ¿Tiene alguna denuncia o llamada a la policía en el momento de los hechos?",
+                }
+                response = f"Para el caso que nos ocupa, de carácter {cat}, ¿usted cuenta con pruebas que nos ayuden a resolver más rápidamente y a nuestro favor el proceso?\n\n{ejemplos[cat]}"
+                save_conversation(response, "categorizacion_caso", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": paso_pruebas.get("botones"),
+                        "step": "verificacion_pruebas",
+                    }
+                )
+
+        if not accion_boton and paso_actual_id == "verificacion_pruebas":
+            msg_l = message_lower
+            empieza_si = msg_l.startswith(("sí", "si"))
+            empieza_no = msg_l.startswith("no")
+            tiene_si = any(w in msg_l for w in ["tengo pruebas", "cuento con", "presento", "adjunto", "tengo documentos"])
+            tiene_no = any(w in msg_l for w in ["no tengo", "no cuento", "no cuentan", "no poseo", "ninguna prueba"])
+            if empieza_si or (tiene_si and not empieza_no):
+                guardar_estado_campo("has_evidence", "si_pruebas", state=state)
+                ya_tiene_descripcion = bool(getattr(state, "case_description", "").strip())
+                if ya_tiene_descripcion:
+                    state.paso_actual = "captura_correo"
+                    paso_correo = obtener_paso("captura_correo")
+                    response = formatear_mensaje(paso_correo, obtener_estado_chat(state))
+                    save_conversation(response, "verificacion_pruebas", message, state=state)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": "captura_correo",
+                        }
+                    )
+                state.paso_actual = "descripcion_caso"
+                response = "Excelente. Cuénteme brevemente qué sucedió en su caso — con eso podré entender mejor su situación. También puede adjuntar los archivos que considere relevantes (documentos, fotos, audios, etc.)."
+                save_conversation(response, "verificacion_pruebas", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_caso",
+                        "show_upload": True,
+                    }
+                )
+            if empieza_no or tiene_no:
+                guardar_estado_campo("has_evidence", "no_pruebas", state=state)
+                ya_tiene_descripcion = bool(getattr(state, "case_description", "").strip())
+                if ya_tiene_descripcion:
+                    state.paso_actual = "captura_correo"
+                    paso_correo = obtener_paso("captura_correo")
+                    response = formatear_mensaje(paso_correo, obtener_estado_chat(state))
+                    save_conversation(response, "verificacion_pruebas", message, state=state)
+                    return jsonify(
+                        {
+                            "response": response,
+                            "end_call": False,
+                            "buttons": None,
+                            "step": "captura_correo",
+                        }
+                    )
+                state.paso_actual = "descripcion_caso"
+                paso_desc = obtener_paso("descripcion_caso")
+                response = formatear_mensaje(paso_desc, obtener_estado_chat(state))
+                save_conversation(response, "verificacion_pruebas", message, state=state)
+                return jsonify(
+                    {
+                        "response": response,
+                        "end_call": False,
+                        "buttons": None,
+                        "step": "descripcion_caso",
+                        "show_upload": False,
+                    }
+                )
+
         if paso_actual_id == "saludo_inicial":
             valid, result = validar_respuesta(paso_actual, message)
             if valid:
@@ -1663,7 +1799,10 @@ He analizado su caso. Recuerde: Tusabogados.com trabaja casos donde solamente co
             get_llm_response(message, state=state)
             or "No estoy segura de entender tu mensaje. ¿Podrías reformularlo?"
         )
-        buttons = [
+        # Conservar los botones propios del paso actual (si los tiene) para no
+        # perder las opciones válidas; solo se usan los genéricos como último
+        # recurso.
+        buttons = (paso_actual or {}).get("botones") or [
             {
                 "texto": "Sí, tengo otra duda",
                 "valor": "consulta_adicional",

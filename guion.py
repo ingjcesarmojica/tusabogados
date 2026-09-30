@@ -171,6 +171,16 @@ PASOS = {
             {"texto": "No, gracias", "valor": "despedida", "descripcion": ""},
         ],
     },
+    "propuesta_horario": {
+        "id": "propuesta_horario",
+        "siguiente": "manejo_post_cita",
+        "mensaje": "Perfecto, {nombre}. Te propongo {fecha_cita}. ¿Te parece bien esa fecha y hora?",
+        "validar": None,
+        "botones": [
+            {"texto": "Sí, confirmo", "valor": "confirmar", "descripcion": ""},
+            {"texto": "No, no me viene bien", "valor": "rechazar", "descripcion": ""},
+        ],
+    },
     "despedida": {
         "id": "despedida",
         "siguiente": None,
