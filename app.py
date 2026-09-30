@@ -67,7 +67,7 @@ else:
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.environ.get(
-    "OPENROUTER_MODEL", "nvidia/nemotron-3-nano-30b-a3b"
+    "OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free"
 ).strip()
 OPENROUTER_CONFIGURED = bool(OPENROUTER_API_KEY)
 
